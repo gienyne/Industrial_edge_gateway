@@ -1,6 +1,8 @@
 # Project Roadmap
 
-The project is developed incrementally.
+The project is implemented in several incremental development sprints.
+
+Each sprint extends the existing architecture instead of replacing it.
 
 ---
 
@@ -8,100 +10,117 @@ The project is developed incrementally.
 
 ## Goal
 
-Create the first complete Sparkplug communication chain.
+Build the first complete Sparkplug B communication chain using embedded sensors.
 
-Sensor
+---
 
-↓
+## Hardware
 
-ESP32
-
-↓
-
-Sparkplug B
-
-↓
-
-MQTT Broker
-
-↓
-
-MQTT Client
-
-### Sensors
-
-- KY-015 DHT11
+- ESP32
+- KY-015 DHT11 Temperature Sensor
 - KY-002 Shock Sensor
-- KY-024 Hall Sensor
+- KY-018 Photoresistor
 
-### Objectives
+---
 
-- read sensor values
-- encode Sparkplug messages
-- publish via MQTT
-- verify received messages
+## System Architecture
 
-No database.
+```
+KY-015      KY-002      KY-018
+    │           │           │
+    └────────── ESP32 ──────────┘
+                 │
+         Sensor Acquisition
+                 │
+        Internal Sensor Data
+                 │
+        Sparkplug B Encoder
+                 │
+          MQTT Publisher
+                 │
+          Public MQTT Broker
+                 │
+         MQTT Explorer / Client
+```
 
-No dashboard.
+---
+
+## Deliverables
+
+- acquire sensor measurements;
+- create valid Sparkplug B messages;
+- publish messages via MQTT;
+- subscribe and verify transmitted messages;
+- validate the complete communication chain.
+
+---
+
+## Out of Scope
+
+- databases;
+- backend application;
+- dashboard;
+- industrial machines.
 
 ---
 
 # Sprint 2
 
-Introduce the Gateway application.
+Introduce the Java Gateway.
 
-Responsibilities
+Responsibilities:
 
-- receive Sparkplug messages
-- validate messages
-- logging
-- architecture improvements
+- receive Sparkplug messages;
+- validate incoming data;
+- improve software architecture;
+- prepare interfaces for future machine connectors.
 
 ---
 
 # Sprint 3
 
-Database integration
+Database integration.
 
-- InfluxDB
-- Metadata database
+Planned components:
+
+- InfluxDB (time-series data);
+- metadata database.
 
 ---
 
 # Sprint 4
 
-Dashboard integration
+Backend and visualization.
 
-- Grafana
-or
-- custom dashboard
+Possible components:
+
+- Spring Boot backend;
+- Grafana or custom dashboard.
 
 ---
 
 # Sprint 5
 
-Industrial machine integration
+Industrial machine integration.
 
-Possible protocols
+Possible communication protocols:
 
-- OPC UA
-- Modbus TCP
-- REST
-- other protocols
+- OPC UA;
+- Modbus TCP;
+- REST APIs;
+- vendor-specific interfaces.
 
-The gateway architecture should require only a new connector while the
-remaining software stays unchanged.
+Only new connectors should be added. The gateway core should remain unchanged.
 
 ---
 
 # Sprint 6
 
-Possible Bachelor extensions
+Possible Bachelor Thesis extensions.
 
-Examples
+Examples:
 
-- Predictive Maintenance
-- Anomaly Detection
-- Sparkplug performance evaluation
-- Comparison with OPC UA PubSub
+- Predictive Maintenance;
+- Anomaly Detection;
+- Sparkplug performance evaluation;
+- Comparison with OPC UA PubSub.
