@@ -1,58 +1,60 @@
 # Development Workflow
 
-## Branches
+## Git Branches
 
-main
+### main
 
-Stable releases only.
+Always contains the latest stable version.
 
 ---
 
-develop
+### develop
 
 Integration branch.
 
-All completed features are merged into develop first.
+Completed features are merged here before being released to **main**.
 
 ---
 
-feature/<name>
+### feature/<name>
 
-One branch for one feature.
+Each feature is developed in its own branch.
 
-Examples
+Examples:
 
+```
 feature/sprint1-sensors
-
 feature/sparkplug-encoder
-
-feature/backend
-
-feature/database
-
+feature/java-gateway
+feature/influxdb
 feature/dashboard
+feature/opcua-connector
+```
 
 ---
 
-## Commit Messages
+## Commit Convention
 
-Examples
+Use small and meaningful commits.
 
+Examples:
+
+```
 feat: add DHT11 driver
-
 feat: implement Sparkplug encoder
-
+feat: publish NBIRTH message
 fix: correct MQTT topic
-
+refactor: simplify sensor interface
 docs: update architecture
-
-refactor: simplify encoder
+```
 
 ---
 
 ## General Rules
 
-- keep commits small
-- test before merging
-- document important changes
-- avoid committing generated files
+- Keep commits focused on one change.
+- Test before merging.
+- Document architectural decisions.
+- Never commit generated files.
+- Keep the project modular.
+- Extend the software instead of rewriting existing components.
