@@ -19,7 +19,7 @@ The gateway shall
 - represent all acquired data using the Sparkplug B specification;
 - publish standardized messages via MQTT;
 - provide an architecture that can be extended by adding new machine connectors instead of modifying the existing software;
-- support future integration with databases and visualization systems.
+- support future integration with databases and visualization systems (Dashboard).
 
 ---
 
