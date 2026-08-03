@@ -1,33 +1,53 @@
+# Sprint 1
+
+## Objective
+
+Validate the first Sparkplug B communication chain using an ESP32 and three sensors.
 
 ---
 
-## Current Sprint
+## Planned Tasks
 
-Sprint 1 focuses on
-
-- ESP32
-- three sensors (KY-002 Shock Sensor module, KY-015 DHT 11 Temperature Sensor Module, KY-018 Photoresistor LDR Module)
-- Sparkplug B encoding
-- public MQTT Broker
-- MQTT publish / subscribe
-
-No database or dashboard is used yet.
+- [ ] Create Git repository
+- [ ] Configure PlatformIO
+- [ ] Connect KY-015
+- [ ] Connect KY-002
+- [ ] Connect KY-018
+- [ ] Read sensor values
+- [ ] Implement internal sensor model
+- [ ] Implement Sparkplug encoder
+- [ ] Publish NBIRTH
+- [ ] Publish DDATA
+- [ ] Test with MQTT Explorer
+- [ ] Document results
 
 ---
 
-## Technologies
+## Decisions
 
-- ESP32
-- PlatformIO
-- C++
-- MQTT
-- Sparkplug B
-- Git
+### 2026-08-03
 
-Later:
+- ESP32 selected as prototype platform.
+- Public MQTT broker used during Sprint 1.
+- No database.
+- No dashboard.
 
-- Java
-- Spring Boot
-- InfluxDB
-- PostgreSQL
-- Grafana
+---
+
+## Progress
+
+| Date | Description |
+|------|-------------|
+| ... | ... |
+
+---
+
+## Notes
+
+...
+
+---
+
+## Next Sprint
+
+Implement the Java Gateway.
