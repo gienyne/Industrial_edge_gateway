@@ -35,7 +35,7 @@ feature/opcua-connector
 
 ## Commit Convention
 
-Use small and meaningful commits.
+Use of small and meaningful commits.
 
 Examples:
 
