@@ -8,7 +8,7 @@ Validate the first Sparkplug B communication chain using an ESP32 and three sens
 
 ## Planned Tasks
 
-- [x ] Create Git repository
+- [x] Create Git repository
 - [ ] Configure PlatformIO
 - [ ] Connect KY-015
 - [ ] Connect KY-002
