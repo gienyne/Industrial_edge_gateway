@@ -116,9 +116,7 @@ Only new connectors should be added. The gateway core should remain unchanged.
 
 # Sprint 6
 
-Possible Bachelor Thesis extensions.
-
-Examples:
+Possible Bachelor Thesis extensions. (Soll aber nochmal besprochen werden).
 
 - Predictive Maintenance;
 - Anomaly Detection;
