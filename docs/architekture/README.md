@@ -4,10 +4,11 @@
 
 The Industrial Edge Gateway follows a modular architecture.
 
-Each software component has a single responsibility.
+Each component has a single responsibility and communicates through a
+common internal data model.
 
-The architecture is designed to evolve from simple sensors connected to an
-ESP32 to industrial machines without requiring major modifications.
+The architecture is designed to evolve from simple ESP32 sensors to
+industrial machines without requiring changes to the gateway core.
 
 ---
 
@@ -27,43 +28,42 @@ ESP32 to industrial machines without requiring major modifications.
                      +----------------------+
                      |    Configuration     |
                      +----------------------+
-                         │      │      │
-                         │      │      │
-                         ▼      ▼      ▼
+                          │
+                          ▼
 
                  +-----------------------+
                  |   Sensor Connector    |
                  +-----------------------+
-                         │
-         ┌───────────────┼────────────────┐
-         ▼               ▼                ▼
+                          │
+         ┌────────────────┼────────────────┐
+         ▼                ▼                ▼
 
-   DHT11Sensor     ShockSensor      LightSensor
+     DHT11Sensor     ShockSensor      LightSensor
 
-                         │
-                         ▼
+                          │
+                          ▼
 
                  +-----------------------+
-                 |    Internal Metric    |
+                 |  Internal Data Model  |
                  +-----------------------+
-                         │
-                         ▼
+                          │
+                          ▼
 
                  +-----------------------+
                  |  Sparkplug Encoder    |
                  +-----------------------+
-                         │
-                         ▼
+                          │
+                          ▼
 
                  +-----------------------+
                  |    MQTT Publisher     |
                  +-----------------------+
-                         │
-                         ▼
+                          │
+                          ▼
 
                      MQTT Broker
-                         │
-                         ▼
+                          │
+                          ▼
 
                     MQTT Explorer
 ```
@@ -74,7 +74,7 @@ ESP32 to industrial machines without requiring major modifications.
 
 ### Configuration
 
-Provides application settings.
+Provides the application configuration.
 
 Examples
 
@@ -88,7 +88,8 @@ Examples
 
 ### Sensor Connector
 
-Collects data from all connected sensors.
+Collects measurements from connected sensors and converts them into the
+common internal data model.
 
 Current implementation
 
@@ -104,13 +105,21 @@ Future implementations
 
 ---
 
-### Internal Metric
+### Internal Data Model
 
-Represents every measurement using a common internal structure.
+Represents every connected device using a common structure that is
+independent of the underlying communication protocol.
 
 Example
 
 ```cpp
+DeviceData
+{
+    deviceId;
+
+    std::vector<Metric> metrics;
+}
+
 Metric
 {
     name;
@@ -120,29 +129,27 @@ Metric
 }
 ```
 
-All remaining software works only with this representation.
+The gateway core operates exclusively on this representation.
 
 ---
 
 ### Sparkplug Encoder
 
-Converts internal metrics into Sparkplug B payloads.
+Converts the internal data model into valid Sparkplug B payloads.
 
-The encoder is independent of the underlying data source.
+The encoder is independent of how the data were acquired.
 
 ---
 
 ### MQTT Publisher
 
-Publishes Sparkplug messages to the configured MQTT Broker.
+Publishes Sparkplug B messages to the configured MQTT Broker.
 
 ---
 
 ## Future Evolution
 
-Only the connector layer changes when new data sources are added.
-
-Example
+When new data sources are added, only the connector layer changes.
 
 ```text
 OPCUAConnector
@@ -150,7 +157,7 @@ ModbusConnector
 RESTConnector
         │
         ▼
-Internal Metric
+Internal Data Model
         │
         ▼
 Sparkplug Encoder
