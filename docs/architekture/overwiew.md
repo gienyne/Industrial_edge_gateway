@@ -16,109 +16,80 @@ protocols and services to be introduced without modifying the gateway core.
 
 ## Design Principles
 
-* Single Responsibility Principle
-* Dependency Injection
-* Programming to Interfaces
-* Modular Architecture
-* Common Internal Data Model
-* Protocol Independence
-* Hardware Independence
-* Extensibility without modifying existing components
+The architecture is based on the following principles.
+
+- Single Responsibility Principle
+- Dependency Injection
+- Programming to Interfaces
+- Common Internal Data Model
+- Hardware Independence
+- Protocol Independence
+- Modular Design
+- Extensibility
 
 ---
 
 ## Data Flow
 
-The following diagram illustrates the flow of data through the gateway.
+The following diagram illustrates how measurement data flows through the
+gateway.
 
-It represents the **data flow** only.
-
-The ownership and composition of the application are described separately in
+For the ownership and composition structure, see
 `gateway-application.md`.
 
 ```text
-                   +----------------------+
-                   |    Configuration     |
-                   +----------------------+
-                            │
-                            ▼
+Sensor Layer
+      │
+      ▼
 
-                   +----------------------+
-                   |    Sensor Layer      |
-                   +----------------------+
-                            │
-                            ▼
-
-                   +----------------------+
-                   |  Sensor Connector    |
-                   +----------------------+
-                            │
-                            ▼
-
-                   +----------------------+
-                   | Internal Data Model  |
-                   +----------------------+
-                            │
-                            ▼
-
-                   +----------------------+
-                   | Sparkplug Encoder    |
-                   +----------------------+
-                            │
-                            ▼
-
-                   +----------------------+
-                   |   MQTT Publisher     |
-                   +----------------------+
-                            │
-                            ▼
-
-                      MQTT Broker
-                            │
-                            ▼
-
-                      MQTT Clients
-```
-
-Every measurement follows the same processing pipeline.
-
-```text
-Physical Sensor
-        │
-        ▼
-
-SensorReading
-        │
-        ▼
+SensorConnector
+      │
+      ▼
 
 DeviceData
-        │
-        ▼
+(Common Internal Data Model)
+      │
+      ▼
+
+SparkplugEncoder
+      │
+      ▼
 
 SparkplugPayload
-        │
-        ▼
+      │
+      ▼
+
+MQTTPublisher
+      │
+      ▼
 
 MQTT Broker
+      │
+      ▼
+
+MQTT Clients
 ```
 
-Each architectural layer transforms the data into the representation required
-by the next layer while remaining independent of all other layers.
+`Configuration` is a cross-cutting service shared by multiple gateway
+components.
+
+Its responsibilities and dependencies are documented in
+`configuration.md`.
 
 ---
 
 ## Documentation Structure
 
-| Document                 | Description                           |
-| ------------------------ | ------------------------------------- |
-| `data-models.md`         | Common internal data model            |
-| `configuration.md`       | Configuration management              |
-| `sensor-layer.md`        | Sensor abstraction                    |
-| `sensor-connector.md`    | Data acquisition and aggregation      |
-| `sparkplug-encoder.md`   | Sparkplug B encoding                  |
-| `mqtt-publisher.md`      | MQTT transport layer                  |
+| Document | Description |
+|----------|-------------|
+| `README.md` | Architecture overview |
+| `configuration.md` | Configuration management |
+| `sensor-layer.md` | Sensor abstraction |
+| `sensor-connector.md` | Data acquisition and aggregation |
+| `sparkplug-encoder.md` | Sparkplug B encoding |
+| `mqtt-publisher.md` | MQTT transport layer |
 | `gateway-application.md` | Application composition and lifecycle |
-| `adr/`                   | Architecture Decision Records (ADRs)  |
+| `adr/` | Architecture Decision Records |
 
 ---
 
@@ -127,15 +98,14 @@ by the next layer while remaining independent of all other layers.
 For readers discovering the project for the first time, the following order is
 recommended.
 
-1. `overview.md`
-2. `data-models.md`
-3. `configuration.md`
-4. `sensor-layer.md`
-5. `sensor-connector.md`
-6. `sparkplug-encoder.md`
-7. `mqtt-publisher.md`
-8. `gateway-application.md`
-9. `adr/`
+1. README.md
+2. configuration.md
+3. sensor-layer.md
+4. sensor-connector.md
+5. sparkplug-encoder.md
+6. mqtt-publisher.md
+7. gateway-application.md
+8. ADRs
 
 ---
 
@@ -146,11 +116,11 @@ than modifying existing ones.
 
 Examples include
 
-* additional sensor implementations
-* new connector types (OPC UA, Modbus..)
-* new communication protocols
-* additional storage backends
-* monitoring and diagnostics services
+- additional sensor implementations
+- new connector types (OPC UA, Modbus, REST)
+- new communication protocols
+- additional storage backends
+- monitoring and diagnostics services
 
 The common internal data model remains the stable contract between all
 components, allowing the gateway to evolve without affecting the overall
