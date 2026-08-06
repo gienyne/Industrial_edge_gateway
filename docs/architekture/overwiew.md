@@ -117,7 +117,7 @@ than modifying existing ones.
 Examples include
 
 - additional sensor implementations
-- new connector types (OPC UA, Modbus, REST)
+- new connector types (OPC UA, Modbus..)
 - new communication protocols
 - additional storage backends
 - monitoring and diagnostics services
