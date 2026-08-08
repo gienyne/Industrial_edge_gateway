@@ -76,15 +76,11 @@ public:
 
     virtual ~IMqttPublisher() = default;
 
-    virtual bool connect(
-        const SparkplugPayload& willMessage
-    ) = 0;
+    virtual bool connect(const SparkplugPayload& willMessage) = 0;
 
     virtual void disconnect() = 0;
 
-    virtual bool publish(
-        const SparkplugPayload& payload
-    ) = 0;
+    virtual bool publish(const SparkplugPayload& payload) = 0;
 
     virtual bool isConnected() const = 0;
 };
@@ -114,15 +110,11 @@ public:
 
     explicit MQTTPublisher(Configuration& configuration);
 
-    bool connect(
-        const SparkplugPayload& willMessage
-    ) override;
+    bool connect(const SparkplugPayload& willMessage) override;
 
     void disconnect() override;
 
-    bool publish(
-        const SparkplugPayload& payload
-    ) override;
+    bool publish(const SparkplugPayload& payload) override;
 
     bool isConnected() const override;
 
@@ -132,9 +124,7 @@ private:
 
     bool connected_;
 
-    void configureWill(
-        const SparkplugPayload& willMessage
-    );
+    void configureWill(const SparkplugPayload& willMessage);
 
     bool reconnect();
 };
@@ -305,7 +295,6 @@ decisions.
 Future versions may support
 
 - automatic reconnect
-- TLS encryption
 - username/password authentication
 - certificate-based authentication
 - configurable QoS
