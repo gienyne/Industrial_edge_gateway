@@ -15,39 +15,56 @@ business logic itself.
 
 The `GatewayApplication`
 
-- creates all application components
-- injects dependencies
-- initializes the gateway
-- coordinates the main execution loop
-- performs graceful shutdown
+- creates all application components;
+- injects dependencies;
+- initializes the gateway;
+- coordinates the main execution loop;
+- performs graceful shutdown.
 
 The application never
 
-- communicates directly with hardware
-- encodes Sparkplug messages
-- publishes MQTT messages
-- implements sensor-specific logic
+- communicates directly with hardware;
+- implements sensor-specific logic;
+- encodes Sparkplug messages;
+- publishes MQTT messages;
+- processes protocol-specific data.
 
 ---
 
 ## Position in the Architecture
 
 ```text
-                GatewayApplication
-                         │
-     ┌───────────────────┼────────────────────┐
-     ▼                   ▼                    ▼
-
-Configuration      SensorConnector     SparkplugEncoder
-        │                                   │
-        └──────────────────┬────────────────┘
-                           ▼
-
-                   MQTTPublisher
+                         GatewayApplication
+                                  │
+             ┌────────────────────┼────────────────────┐
+             │                    │                    │
+             ▼                    ▼                    ▼
+       Configuration          IConnector       ISparkplugEncoder
+                                  │                    │
+                    ┌─────────────┼─────────────┐      │
+                    │             │             │      │
+                    ▼             ▼             ▼      │
+             ESP32Connector   OPCUAConnector  ModbusConnector
+                    │             │             │      │
+                    ▼             ▼             ▼      │
+               DeviceData    DeviceData    DeviceData  │
+                    │             │             │      │
+                    └─────────────┼─────────────┘      │
+                                  │                    │
+                                  └──────────┬─────────┘
+                                             ▼
+                                      SparkplugPayload
+                                             │
+                                             ▼
+                                      IMqttPublisher
+                                             │
+                                             ▼
+                                        MQTT Broker
 ```
 
-`GatewayApplication` owns all major components and wires them together using
-dependency injection.
+`GatewayApplication` does not know how individual machines are accessed.
+
+It only coordinates components through their defined interfaces.
 
 ---
 
@@ -66,7 +83,7 @@ public:
 };
 ```
 
-Typical usage
+Typical usage:
 
 ```cpp
 int main()
@@ -97,129 +114,271 @@ private:
 
     Configuration configuration_;
 
-    DHT11Sensor dht11Sensor_;
+    std::vector<std::unique_ptr<IConnector>> connectors_;
 
-    ShockSensor shockSensor_;
+    std::unique_ptr<ISparkplugEncoder> sparkplugEncoder_;
 
-    LightSensor lightSensor_;
-
-    SensorArray sensors_;
-
-    SensorConnector sensorConnector_;
-
-    SparkplugEncoder sparkplugEncoder_;
-
-    MQTTPublisher mqttPublisher_;
+    std::unique_ptr<IMqttPublisher> mqttPublisher_;
 };
 ```
 
+The `GatewayApplication` depends on interfaces where multiple
+implementations or test substitutions are intended.
+
+- `IConnector` allows different machine protocols to be integrated.
+- `ISparkplugEncoder` allows alternative encoding strategies to be
+  substituted in the future.
+- `IMqttPublisher` allows the concrete MQTT implementation to be replaced,
+  for example by a mock during testing or by another MQTT client library.
+
+The concrete implementations are created by the composition root and
+injected into the application.
+
+---
+
+## Member Initialization Order
+
 Member declaration order follows the dependency order shown above.
 
-In C++, class members are always initialized in declaration order, regardless
-of the constructor initializer list.
+In C++, class members are always initialized in declaration order,
+regardless of the order used in the constructor initializer list.
+
+Therefore, the declaration order must be maintained carefully whenever
+components depend on previously created members.
+
+---
+
+## Dependency Injection
+
+`GatewayApplication` acts as the composition root.
+
+It creates the concrete implementations and injects them into the
+components that require them.
+
+Conceptually:
+
+```text
+Concrete Implementations
+        │
+        ▼
+GatewayApplication
+        │
+        ├── IConnector
+        ├── ISparkplugEncoder
+        └── IMqttPublisher
+```
+
+The application lifecycle is therefore separated from the implementation
+details of individual components.
+
+---
+
+## Multiple Device Handling
+
+The gateway can integrate multiple industrial devices through different
+connectors.
+
+```text
+                    GatewayApplication
+                           │
+          ┌────────────────┼────────────────┐
+          ▼                ▼                ▼
+   ESP32Connector    OPCUAConnector   ModbusConnector
+          │                │                │
+          ▼                ▼                ▼
+     DeviceData       DeviceData       DeviceData
+          │                │                │
+          └────────────────┼────────────────┘
+                           ▼
+                    SparkplugEncoder
+                           │
+                           ▼
+                    MQTTPublisher
+```
+
+Each connector represents one source or device integration.
+
+Each connector produces its own `DeviceData`.
+
+Connectors do not merge their data into a shared `DeviceData` object.
+
+Each `DeviceData` is processed and published independently.
 
 ---
 
 ## Initialization Sequence
 
-During startup the application performs the following steps.
+During startup the application performs the following steps:
 
 ```text
 Create Configuration
         │
         ▼
-
-Create Sensors
+Create Connectors
         │
         ▼
-
-Create SensorArray
-        │
-        ▼
-
-Create SensorConnector
-        │
-        ▼
-
 Create SparkplugEncoder
         │
         ▼
-
 Create MQTTPublisher
         │
         ▼
-
-Initialize Sensors
+Initialize Connectors
         │
         ▼
-
 Generate NDEATH (Last Will)
         │
         ▼
-
 Connect to MQTT Broker
         │
         ▼
-
 Publish NBIRTH
 ```
 
-After successful initialization the gateway enters its normal operating mode.
+The concrete connectors may represent different source protocols.
+
+For example:
+
+- ESP32Connector
+- OPCUAConnector
+- ModbusConnector
+
+After successful initialization, the gateway enters its normal operating
+mode.
 
 ---
 
 ## Main Execution Loop
 
-The gateway continuously performs the following cycle.
+During normal operation, the gateway continuously processes each connector.
+
+Conceptually:
 
 ```text
-SensorConnector
-        │
+IConnector
+    │
 collectData()
-        │
-        ▼
-
+    │
+    ▼
 DeviceData
-        │
-        ▼
+    │
+    ▼
+ISparkplugEncoder
+    │
+encode(DDATA)
+    │
+    ▼
+SparkplugPayload
+    │
+    ▼
+IMqttPublisher
+    │
+publish()
+    │
+    ▼
+MQTT Broker
+```
 
+For multiple connectors:
+
+```text
+for each connector
+
+    DeviceData = connector.collectData()
+
+    SparkplugPayload =
+        sparkplugEncoder.encode(DeviceData, DDATA)
+
+    mqttPublisher.publish(SparkplugPayload)
+```
+
+Each connector produces its own `DeviceData`, which is encoded and
+published independently.
+
+The connectors do not directly communicate with one another.
+
+---
+
+## Sparkplug Publication Lifecycle
+
+The gateway follows the Sparkplug lifecycle for the Edge Node.
+
+```text
+Startup
+   │
+   ▼
 SparkplugEncoder
         │
-encode(DDATA)
+encode(NDEATH)
         │
         ▼
-
 SparkplugPayload
         │
         ▼
-
-MQTTPublisher
+MQTTPublisher.connect()
         │
-publish()
+        ▼
+MQTT Broker
+        │
+Connection established
+        │
+        ▼
+SparkplugEncoder
+        │
+encode(NBIRTH)
+        │
+        ▼
+MQTTPublisher.publish()
 ```
 
-This cycle repeats until the application terminates.
+The NDEATH message is registered as the MQTT Last Will before the
+connection to the broker is established.
+
+After a successful connection, the gateway publishes NBIRTH.
+
+During normal operation, device data is published using DDATA.
 
 ---
 
 ## Shutdown Sequence
 
-A graceful shutdown performs the following operations.
+A graceful shutdown performs the following operations:
 
 ```text
 Publish DDEATH
         │
         ▼
-
 Disconnect MQTT
         │
         ▼
-
 Terminate Application
 ```
 
-If the application terminates unexpectedly, the MQTT Broker automatically
-publishes the previously registered `NDEATH` message.
+If the gateway terminates unexpectedly, the MQTT broker automatically
+publishes the previously registered NDEATH message.
+
+---
+
+## Separation of Responsibilities
+
+`GatewayApplication` coordinates the components but does not implement
+their internal responsibilities.
+
+```text
+GatewayApplication
+        │
+        ├── IConnector
+        │      └── Device acquisition
+        │
+        ├── ISparkplugEncoder
+        │      └── Sparkplug B encoding
+        │
+        └── IMqttPublisher
+               └── MQTT transport
+```
+
+This keeps the composition root independent from hardware and protocol
+implementation details.
 
 ---
 
@@ -227,15 +386,17 @@ publishes the previously registered `NDEATH` message.
 
 - Composition Root
 - Dependency Injection
+- Programming to Interfaces
 - Separation of Responsibilities
 - Explicit Application Lifecycle
 - Single Responsibility Principle
+- Hardware and Protocol Independence
 
 ---
 
 ## Future Extensions
 
-Future versions may introduce additional components such as
+Future versions may introduce additional components such as:
 
 - Logger
 - Configuration Loader
@@ -244,5 +405,17 @@ Future versions may introduce additional components such as
 - OTA Update Manager
 - Health Monitoring
 
-These components can be integrated through `GatewayApplication` without
-modifying the existing architecture.
+Additional machine connectors can also be integrated without modifying the
+core application flow.
+
+Examples:
+
+- ESP32Connector
+- OPCUAConnector
+- ModbusConnector
+- RESTConnector
+
+Each connector implements `IConnector` and produces the common
+`DeviceData` representation.
+
+The existing gateway processing pipeline remains unchanged.
