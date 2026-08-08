@@ -2,53 +2,84 @@
 
 ## Purpose
 
-The Sensor Layer provides a hardware abstraction for all physical sensors.
+The Sensor Layer provides a hardware abstraction for physical sensors
+connected to a source device such as the ESP32.
 
-Each sensor is responsible only for communicating with its own hardware and
-producing a common `SensorReading` object.
+Each sensor is responsible only for communicating with its own hardware,
+acquiring measurements, validating the acquired data and producing a
+source-specific `SensorReading`.
 
-The remaining gateway components never access hardware directly.
+The Sensor Layer belongs to the source device and is independent from the
+Industrial Edge Gateway.
+
+The gateway does not access sensor hardware directly.
 
 ---
 
 ## Responsibilities
 
-Each sensor
+Each sensor is responsible for:
 
-- initializes its hardware
-- acquires measurements
-- validates the acquired data
-- returns a `SensorReading`
+- initializing its hardware;
+- acquiring measurements;
+- validating the acquired data;
+- returning a `SensorReading`;
+- exposing its sensor identity through the common `ISensor` interface.
 
-Sensors never
+Sensors do **not**:
 
-- create metrics
-- build `DeviceData`
-- encode Sparkplug messages
-- publish MQTT messages
+- create `Metric` objects;
+- create `DeviceData`;
+- encode Sparkplug messages;
+- publish Sparkplug messages;
+- implement gateway logic;
+- communicate directly with the Industrial Edge Gateway.
 
 ---
 
 ## Position in the Architecture
 
+The Sensor Layer is located entirely on the source device.
+
 ```text
-                   Sensor Layer
+                    ESP32 / SOURCE DEVICE
+                    =====================
 
-      +-------------+-------------+
-      |             |             |
-      ▼             ▼             ▼
+       DHT11Sensor      ShockSensor      LightSensor
+            │                │                │
+            │                │                │
+            └────────────────┼────────────────┘
+                             │
+                             ▼
+                     SensorConnector
+                             │
+                             ▼
+                       Raw Transport
 
- DHT11Sensor   ShockSensor   LightSensor
-      │             │             │
-      └─────────────┼─────────────┘
-                    ▼
-
-                ISensor
-                    │
-                    ▼
-
-            SensorConnector
+                    =====================
+                         GATEWAY
 ```
+
+`ISensor` is an interface implemented by the concrete sensor classes.
+It is not a processing step in the data flow.
+
+```text
+DHT11Sensor ─────┐
+ShockSensor ─────┼──────► SensorConnector
+LightSensor ─────┘
+       ▲
+       │ implements
+       │
+     ISensor
+```
+
+The `SensorConnector` accesses the concrete sensors through the `ISensor`
+interface and aggregates their readings.
+
+The resulting source data is then transferred to the Industrial Edge Gateway
+through a raw transport mechanism.
+
+The concrete transport protocol is intentionally not defined at this layer.
 
 ---
 
@@ -69,63 +100,131 @@ public:
 };
 ```
 
+The interface provides a common abstraction for all physical sensors.
+
+A concrete sensor implements `ISensor` while keeping its hardware-specific
+communication details internal to the implementation.
+
 ---
 
 ## Current Implementations
 
 ### DHT11Sensor
 
-Measures
+Measures:
 
 - Temperature
 - Humidity
 
-Notes
+Notes:
 
 - The DHT11 communication protocol requires timing-sensitive bit transfers.
 - The `read()` operation may block for a few milliseconds.
 
----
-
 ### ShockSensor
 
-Measures
+Measures:
 
 - Shock detection
 
-Acquisition Method
+Acquisition method:
 
 - Digital polling
 
-Future Extension
+Future extension:
 
 - Interrupt-based acquisition
 
----
-
 ### LightSensor
 
-Measures
+Measures:
 
 - Ambient light level
 
-Measurement
+Current measurement:
 
 - Raw ADC value
 
-Future Extension
+Future extension:
 
-- Calibrated light intensity (lux)
+- Calibrated light intensity in lux
+
+---
+
+## Sensor Readings
+
+Each sensor may define its own source-specific reading structure.
+
+Examples:
+
+```text
+DHT11Reading
+├── temperature
+├── humidity
+├── timestamp
+└── valid
+```
+
+```text
+ShockReading
+├── detected
+├── timestamp
+└── valid
+```
+
+```text
+LightReading
+├── intensity
+├── timestamp
+└── valid
+```
+
+These structures represent hardware-specific acquisition results.
+
+They are not part of the Industrial Edge Gateway's common internal data
+model.
+
+The Gateway receives source data through its corresponding connector and
+converts it into the common `Metric` and `DeviceData` representations.
 
 ---
 
 ## Design Principles
 
-- Single Responsibility Principle
-- Hardware abstraction
-- Common sensor interface
-- No protocol knowledge
-- No gateway knowledge
+### Single Responsibility
+
+Each sensor handles only its own hardware and measurement acquisition.
+
+### Hardware Abstraction
+
+The `ISensor` interface hides hardware-specific implementation details from
+the `SensorConnector`.
+
+### Common Sensor Interface
+
+All sensors expose the same basic operations:
+
+- initialization;
+- measurement acquisition;
+- sensor identification.
+
+### No Protocol Knowledge
+
+Sensors do not know about:
+
+- MQTT;
+- Sparkplug B;
+- OPC UA;
+- Modbus;
+- HTTP;
+- Gateway communication protocols.
+
+### No Gateway Knowledge
+
+Sensors are independent of the Industrial Edge Gateway.
+
+They produce source-specific readings that are later handled by the
+`SensorConnector` and transferred through the source-device transport layer.
 
 ---
 
@@ -133,9 +232,12 @@ Future Extension
 
 New sensors can be added by implementing `ISensor`.
 
-Examples
+Examples:
 
 - BME280
-- CO₂ Sensor
+- CO₂ sensor
+- additional digital sensors
+- additional analog sensors
 
-No modification of existing gateway components is required.
+Adding a new sensor does not require changes to the gateway's common data
+model or communication components.
