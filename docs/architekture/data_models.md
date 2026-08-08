@@ -4,20 +4,23 @@
 
 The Industrial Edge Gateway is built around a common internal data model.
 
-Instead of exchanging hardware-specific or protocol-specific data between
-software components, all information is transformed into a common internal
-representation before it is processed by the gateway.
+Source devices may use different hardware, sensors and communication
+protocols. Their source-specific data is therefore transformed into a
+common representation inside the Industrial Edge Gateway before it is
+processed further.
 
-This design separates hardware acquisition, business logic and communication
-protocols while providing a stable foundation for future extensions.
+The gateway separates source-specific acquisition from its internal data
+model and from the communication protocols used for standardized
+publication.
 
-The complete data flow is shown below.
+The resulting data flow is:
 
 ```text
-Sensor
+Source Device
     │
+    │ Source-specific data
     ▼
-SensorReading
+Source Connector
     │
     ▼
 Metric
@@ -29,24 +32,56 @@ DeviceData
 SparkplugPayload
     │
     ▼
+MQTT Publisher
+    │
+    ▼
 MQTT Broker
 ```
 
-Each model has exactly one responsibility and represents one abstraction
-level of the gateway.
+For sensor-based sources such as the ESP32, hardware-specific sensor
+readings may exist before the data reaches the gateway.
+
+```text
+ESP32
+    │
+    ▼
+Sensor
+    │
+    ▼
+SensorReading
+    │
+    ▼
+Source Transport
+    │
+    ▼
+ESP32Connector
+    │
+    ▼
+Metric
+    │
+    ▼
+DeviceData
+```
+
+Other industrial sources may provide their data through protocols such as
+OPC UA or Modbus and may therefore not require a SensorReading layer.
+
+Each model has one clearly defined responsibility and represents a specific
+abstraction level.
 
 ---
 
-# Data Models
+## Data Models
 
-## Configuration
+### Configuration
 
-The `Configuration` model stores all runtime parameters required by the
-application.
+The `Configuration` model represents runtime parameters required by an
+application component.
 
-It does not contain sensor or machine data.
+Configuration is independent from measurement data and does not contain
+sensor values, metrics or device snapshots.
 
-Typical configuration parameters include
+Typical gateway configuration parameters include:
 
 - MQTT Broker
 - MQTT Port
@@ -57,19 +92,30 @@ Typical configuration parameters include
 - MQTT QoS
 - MQTT Retain Flag
 
-The configuration is shared by the gateway components but remains completely
-independent from the application data.
+Source devices such as the ESP32 may have their own local configuration,
+for example sensor settings, source transport parameters or local sampling
+intervals.
+
+Gateway configuration and source-device configuration are therefore
+independent concerns.
+
+The exact separation and ownership of these configuration parameters is
+defined by the corresponding application components.
 
 ---
 
-## SensorReading
+### SensorReading
 
-`SensorReading` represents the raw output produced by a hardware sensor.
+`SensorReading` represents a source-specific measurement produced by a
+hardware sensor.
 
-Each sensor defines its own reading model because different sensors measure
-different physical quantities.
+This model is only required for sources that directly acquire physical
+measurements through sensors.
 
-Current implementation
+Different sensors may define different reading structures because they
+measure different physical quantities and may provide different metadata.
+
+Current sensor models include:
 
 ```text
 DHT11Reading
@@ -93,20 +139,27 @@ LightReading
 └── valid
 ```
 
-Keeping hardware-specific readings separated allows every sensor driver to
-remain simple and independent from the remaining gateway software.
+`SensorReading` is source-specific and does not form part of the common
+gateway data model.
+
+For example, an OPC UA connector may receive a value directly from an
+industrial device and convert it directly into a `Metric` without creating
+a `SensorReading`.
 
 ---
 
-## Metric
+### Metric
 
-A `Metric` represents one standardized measurement inside the gateway.
+A `Metric` represents one standardized measurement inside the Industrial
+Edge Gateway.
 
-Every measurement, regardless of whether it originates from an embedded
-sensor, an OPC UA server, a Modbus device or another industrial interface,
-is converted into this common representation.
+Every measurement is converted into this common representation before it
+enters the gateway's common processing pipeline.
 
-Conceptually
+The original source may be an embedded sensor, an OPC UA server, a Modbus
+device, a REST interface or another industrial data source.
+
+Conceptually:
 
 ```text
 Metric
@@ -117,31 +170,31 @@ Metric
 └── timestamp
 ```
 
-Examples
+Examples:
 
 ```text
-Temperature = 24.8 °C
-
-Humidity = 56 %
-
-Shock = true
-
-Light = 820 lx
+Temperature  = 24.8 °C
+Humidity     = 56 %
+Shock        = true
+Light        = 820 lx
+MotorSpeed   = 1500 rpm
+MotorCurrent = 4.2 A
 ```
 
-The gateway core processes only metrics and never interacts directly with
-hardware-specific structures.
+The gateway core processes standardized metrics and does not depend on the
+hardware-specific structures used by individual source devices.
 
 ---
 
-## DeviceData
+### DeviceData
 
-`DeviceData` groups all metrics belonging to one physical device.
+`DeviceData` is the common internal gateway representation of one physical
+device.
 
-Instead of processing isolated measurements, the gateway always processes a
-complete device snapshot.
+It groups all metrics belonging to the same device into one logical data
+object.
 
-Conceptually
+Conceptually:
 
 ```text
 DeviceData
@@ -150,48 +203,58 @@ DeviceData
 └── timestamp
 ```
 
-Example
+Example:
 
 ```text
-ESP32
-
+ESP32-01
 ├── Temperature
 ├── Humidity
 ├── Shock
 └── Light
 ```
 
-Future industrial devices follow exactly the same structure.
+A future industrial device follows the same internal structure regardless
+of its native communication protocol.
 
-Example
+Example:
 
 ```text
-Robot ABB
-
+Robot-01
 ├── Temperature
 ├── Motor Current
 ├── Speed
 └── Alarm
 ```
 
-The `timestamp` of `DeviceData` represents the moment at which the gateway
-assembled the complete snapshot of the device.
+`DeviceData` belongs to the internal data model of the Industrial Edge
+Gateway.
+
+The source device does not need to know or use this internal representation.
+It only provides its source-specific data through its communication
+interface.
+
+The `deviceId` identifies the physical source represented by the data.
+
+The `timestamp` of `DeviceData` represents the point at which the gateway
+assembled the current device snapshot.
 
 Each individual `Metric` keeps the timestamp of its own measurement.
 
 This distinction allows the gateway to preserve both the acquisition time
-of each measurement and the creation time of the complete device snapshot.
+of individual measurements and the creation time of the complete device
+snapshot.
 
 ---
 
-## SparkplugPayload
+### SparkplugPayload
 
-`SparkplugPayload` represents the final message produced by the Sparkplug
-Encoder.
+`SparkplugPayload` represents the communication model produced by the
+Sparkplug Encoder.
 
-It contains all information required for MQTT publication.
+It contains the information required by the MQTT Publisher to publish a
+Sparkplug B message.
 
-Conceptually
+Conceptually:
 
 ```text
 SparkplugPayload
@@ -202,22 +265,241 @@ SparkplugPayload
 └── bdSeq
 ```
 
-The MQTT Publisher works exclusively with this model and remains completely
-independent from sensors, industrial protocols and internal gateway logic.
+The Sparkplug Encoder transforms the gateway's internal `DeviceData` into
+the Sparkplug-specific representation.
+
+```text
+DeviceData
+    │
+    ▼
+Sparkplug Encoder
+    │
+    ▼
+SparkplugPayload
+```
+
+The MQTT Publisher works exclusively with `SparkplugPayload`.
+
+It does not interact directly with sensors, source-specific data models or
+industrial protocols.
+
+Sparkplug-specific concepts therefore remain outside the common internal
+data model.
 
 ---
 
-# Design Principles
+## Data Ownership
 
-## Separation of Responsibilities
+The ownership of the different models is intentionally separated.
 
-Each model represents exactly one abstraction level.
+| Model               | Ownership          |
+|---------------------|---------------------|
+| `SensorReading`      | Source-specific     |
+| `Metric`             | Gateway internal    |
+| `DeviceData`         | Gateway internal    |
+| `SparkplugPayload`   | Gateway communication |
+
+This boundary is fundamental to the architecture.
+
+```text
+SOURCE SIDE
+────────────────────────────────────────
+Sensor
+    │
+    ▼
+SensorReading
+    │
+    │ Source transport
+    ▼
+
+══════════════ GATEWAY BOUNDARY ══════════════
+
+    │
+    ▼
+Source Connector
+    │
+    ▼
+Metric
+    │
+    ▼
+DeviceData
+    │
+    ▼
+SparkplugPayload
+    │
+    ▼
+MQTT Publisher
+
+──────────────────────────────────────────────
+GATEWAY SIDE
+```
+
+The gateway therefore does not require source devices to understand its
+internal `Metric` or `DeviceData` models.
+
+This allows different types of machines to be integrated without forcing
+them to adopt the gateway's internal software structures.
+
+---
+
+## Design Principles
+
+### Separation of Responsibilities
+
+Each model represents one abstraction level.
+
+For a sensor-based source:
 
 ```text
 Sensor
+    │
+    ▼
+SensorReading
+    │
+    ▼
+Metric
+    │
+    ▼
+DeviceData
+    │
+    ▼
+SparkplugPayload
+```
+
+For an industrial source that provides data directly through a protocol
+such as OPC UA or Modbus:
+
+```text
+Industrial Device
+    │
+    ▼
+Connector
+    │
+    ▼
+Metric
+    │
+    ▼
+DeviceData
+    │
+    ▼
+SparkplugPayload
+```
+
+No model combines responsibilities from multiple layers.
+
+---
+
+### Hardware Independence
+
+The common gateway data model does not depend on a specific sensor or
+hardware platform.
+
+Source-specific acquisition remains isolated within the corresponding
+source-side components and connectors.
+
+The gateway core operates on `Metric` and `DeviceData` instead of directly
+processing hardware-specific structures.
+
+---
+
+### Protocol Independence
+
+The internal data model does not depend on Sparkplug B, MQTT, OPC UA,
+Modbus or any other communication protocol.
+
+Source connectors are responsible for transforming protocol-specific source
+data into the gateway's common representation.
+
+The Sparkplug Encoder is responsible for transforming the internal gateway
+representation into the Sparkplug-specific communication format.
+
+This keeps protocol-specific processing outside the common internal model.
+
+---
+
+### Centralized Standardization
+
+Sparkplug B standardization is performed centrally by the Industrial Edge
+Gateway.
+
+Source devices are not required to implement the Sparkplug data model.
+
+The architecture therefore follows:
+
+```text
+Heterogeneous Sources
         │
         ▼
-SensorReading
+Source Connectors
+        │
+        ▼
+Common Gateway Model
+        │
+        ▼
+Sparkplug Encoder
+        │
+        ▼
+Sparkplug B
+```
+
+This centralizes the complexity of standardized industrial communication
+and prevents every source device from having to implement the same
+Sparkplug logic.
+
+---
+
+### Extensibility
+
+Adding support for a new data source requires a corresponding connector
+that transforms the source-specific data into the common gateway model.
+
+Examples include:
+
+```text
+ESP32Connector
+OPCUAConnector
+ModbusConnector
+RESTConnector
+        │
+        ▼
+     Metric
+        │
+        ▼
+   DeviceData
+```
+
+The remaining gateway processing pipeline remains unchanged.
+
+Once the connector produces `Metric` and `DeviceData`, the same Sparkplug
+encoding and MQTT publication mechanisms can be used for the new source.
+
+---
+
+## Summary
+
+The internal data model forms the foundation of the Industrial Edge Gateway.
+
+It provides:
+
+- a common representation for measurements from different sources;
+- a clear separation between source-specific data and gateway-internal data;
+- independence from specific hardware platforms;
+- independence from source communication protocols;
+- centralized Sparkplug B standardization;
+- a modular and extensible foundation for future industrial machine
+  integration.
+
+The key architectural boundary is:
+
+```text
+Source-specific data
+        │
+        ▼
+Source Connector
+        │
+════════════════════════════════
+      Gateway Boundary
+════════════════════════════════
         │
         ▼
 Metric
@@ -227,64 +509,11 @@ DeviceData
         │
         ▼
 SparkplugPayload
-```
-
-No model combines responsibilities from multiple layers.
-
----
-
-## Hardware Independence
-
-The gateway core never processes hardware-specific data.
-
-Only the Sensor Connector knows how measurements are acquired.
-
-All remaining components operate exclusively on the common internal data
-model.
-
----
-
-## Protocol Independence
-
-The internal data model does not depend on Sparkplug B, MQTT, OPC UA,
-Modbus or any other communication protocol.
-
-Protocol-specific processing is delegated to dedicated components such as
-the Sparkplug Encoder or future machine connectors.
-
----
-
-## Extensibility
-
-Adding support for a new data source requires only a new connector.
-
-Example
-
-```text
-OPCUAConnector
-
-ModbusConnector
-
-RESTConnector
         │
         ▼
-Metric
-        │
-        ▼
-DeviceData
+MQTT
 ```
 
-The remaining gateway architecture remains unchanged.
-
----
-
-# Summary
-
-The internal data model forms the foundation of the Industrial Edge Gateway.
-
-It provides
-
-- a common representation for every measurement;
-- clear separation between hardware and communication protocols;
-- a modular and extensible architecture;
-- a stable software foundation for future industrial machine integration.
+`SensorReading` belongs to the source-specific side, while `Metric`,
+`DeviceData` and the subsequent processing models belong to the Industrial
+Edge Gateway.
