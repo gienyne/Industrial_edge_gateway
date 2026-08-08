@@ -67,10 +67,7 @@ public:
 
     virtual ~ISparkplugEncoder() = default;
 
-    virtual SparkplugPayload encode(
-        const DeviceData& deviceData,
-        MessageType messageType
-    ) = 0;
+    virtual SparkplugPayload encode(const DeviceData& deviceData,MessageType messageType) = 0;
 };
 ```
 
