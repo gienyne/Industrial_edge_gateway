@@ -2,10 +2,16 @@
 
 ## Purpose
 
-The `SensorConnector` collects measurements from all configured sensors and
-converts them into the common internal data model used by the gateway.
+The `SensorConnector` is a source-device component responsible for
+aggregating measurements from the sensors connected to the ESP32.
 
-It is the only component that knows which physical sensors are connected.
+It collects the source-specific `SensorReading` objects produced by the
+sensor layer and prepares the collected data for transmission to the
+Industrial Edge Gateway.
+
+The `SensorConnector` belongs entirely to the source device. It is not a
+Gateway-side connector and does not implement the Gateway's `IConnector`
+interface.
 
 ---
 
@@ -13,87 +19,96 @@ It is the only component that knows which physical sensors are connected.
 
 The `SensorConnector`
 
-- initializes all sensors
-- collects sensor readings
-- validates acquired data
-- converts valid readings into `Metric` objects
-- groups metrics into one `DeviceData`
-- reports invalid readings for diagnostic purposes
+- initializes all configured sensors;
+- collects `SensorReading` objects;
+- validates acquired readings;
+- aggregates the available sensor data;
+- prepares the source data for the raw transport layer;
+- reports invalid readings and initialization failures for diagnostics.
 
 The `SensorConnector` never
 
-- communicates directly with MQTT
-- encodes Sparkplug messages
-- accesses databases
-- performs visualization
+- creates Gateway `Metric` objects;
+- creates Gateway `DeviceData` objects;
+- encodes Sparkplug B messages;
+- publishes Sparkplug messages;
+- communicates with the central MQTT publisher;
+- accesses databases;
+- performs visualization.
+
+The conversion from source-specific data into the Gateway's internal
+`Metric` and `DeviceData` models is performed by the corresponding
+connector on the Industrial Edge Gateway.
 
 ---
 
 ## Position in the Architecture
 
 ```text
-                 Sensor Layer
-                       │
-                       ▼
-
-                SensorConnector
-                       │
-                       ▼
-
-                  DeviceData
-                       │
-                       ▼
-
-               SparkplugEncoder
+                    ESP32 / Source Device
+                           │
+                           │
+                    ┌──────▼──────┐
+                    │ Sensor Layer│
+                    └──────┬──────┘
+                           │
+                           ▼
+                    SensorConnector
+                           │
+                           ▼
+                    Source Data
+                           │
+                           ▼
+                     Raw Transport
+                           │
+                           │
+═══════════════════════════╪════════════════════════════════
+                           │
+                           ▼
+                Industrial Edge Gateway
+                           │
+                    ESP32Connector
+                           │
+                           ▼
+                       Metric
+                           │
+                           ▼
+                     DeviceData
 ```
+
+The exact raw transport protocol between the ESP32 and the Gateway is
+intentionally not defined by this component.
 
 ---
 
 ## Public Interface
 
+`SensorConnector` is a concrete class because there is currently no need
+for multiple implementations of a connector at the source-device level.
+
 ```cpp
-class IConnector
+class SensorConnector
 {
 public:
 
-    virtual bool initialize() = 0;
+    SensorConnector(const SensorArray& sensors);
 
-    virtual DeviceData collectData() = 0;
+    bool initialize();
 
-    virtual const char* name() const = 0;
+    SourceData collectData();
 
-    virtual ~IConnector() = default;
-};
-```
-
----
-
-## SensorConnector
-
-```cpp
-class SensorConnector : public IConnector
-{
-public:
-
-    SensorConnector(Configuration& configuration, const SensorArray& sensors);
-
-    bool initialize() override;
-
-    DeviceData collectData() override;
-
-    const char* name() const override;
+    const char* name() const;
 
 private:
-
-    Configuration& configuration_;
 
     SensorArray sensors_;
 
     void logDiagnostic(const char* message);
-
-    Metric createMetric( const SensorReading& reading);
 };
 ```
+
+The exact definition of `SourceData` depends on the transport and
+serialization design selected for the source device.
 
 ---
 
@@ -101,16 +116,15 @@ private:
 
 The connector attempts to initialize every injected sensor.
 
-If one or more sensors fail to initialize,
-`initialize()` returns `false`.
+If one or more sensors fail to initialize, `initialize()` reports the
+failure through the diagnostic mechanism.
 
-The connector nevertheless remains operational.
+The connector remains operational and continues to collect data from
+successfully initialized sensors.
 
-Sensors that failed initialization later produce invalid
-`SensorReading` objects, which are excluded during data collection.
-
-Initialization failures are reported through
-`logDiagnostic()`.
+Sensors that cannot provide a valid measurement produce invalid
+`SensorReading` objects, which are excluded from the transmitted source
+data.
 
 ---
 
@@ -118,49 +132,137 @@ Initialization failures are reported through
 
 During each acquisition cycle the connector
 
-1. reads every sensor;
-2. validates each `SensorReading`;
-3. converts valid readings into `Metric` objects;
-4. groups all metrics into one `DeviceData`;
-5. returns the completed `DeviceData`.
+- reads every configured sensor;
+- receives the corresponding `SensorReading`;
+- validates each reading;
+- excludes invalid readings;
+- aggregates the valid source data;
+- forwards the resulting data to the raw transport layer.
 
-Invalid `SensorReading` objects are excluded from the resulting
-`DeviceData`.
+Conceptually:
 
-The omission is transparent to the remaining gateway components.
+```text
+DHT11Sensor ──► DHT11Reading ──┐
+ShockSensor ─► ShockReading ───┼──► SensorConnector
+LightSensor ─► LightReading ───┘
+                                      │
+                                      ▼
+                                  Source Data
+                                      │
+                                      ▼
+                                 Raw Transport
+```
 
-Diagnostic information is reported through
-`logDiagnostic()`.
+The connector does not transform the readings into the Gateway's
+internal `Metric` representation.
 
 ---
 
 ## Dependency Injection
 
-The connector does not create sensor objects.
+The connector does not create sensor objects itself.
 
-All sensors are injected through the constructor.
+All sensors are provided during construction.
 
 ```text
-GatewayApplication
-        │
-        ▼
-
- DHT11Sensor
- ShockSensor
- LightSensor
-        │
-        ▼
-
- SensorConnector
+              Composition Root
+                     │
+          ┌──────────┼──────────┐
+          ▼          ▼          ▼
+     DHT11Sensor ShockSensor LightSensor
+          │          │          │
+          └──────────┼──────────┘
+                     ▼
+              SensorConnector
 ```
 
-`GatewayApplication` acts as the composition root of the system.
+This keeps sensor creation separate from sensor aggregation and allows
+the connector to operate against the common `ISensor` interface.
 
-It creates the application components and injects their dependencies
-during startup.
+The injected sensor objects must remain valid for the lifetime of the
+`SensorConnector`.
 
-The connector assumes that all injected sensor objects remain valid
-during its lifetime.
+---
+
+## Separation from Gateway Connectors
+
+The name "Connector" is used at two different architectural levels, but
+the responsibilities are different.
+
+**Source Device**
+
+```text
+ISensor
+   ▲
+   │
+DHT11Sensor
+ShockSensor
+LightSensor
+   │
+   ▼
+SensorConnector
+```
+
+`SensorConnector` aggregates data locally on the ESP32.
+
+**Industrial Edge Gateway**
+
+```text
+IConnector
+    ▲
+    │
+    ├── ESP32Connector
+    ├── OPCUAConnector
+    ├── ModbusConnector
+    └── RESTConnector
+```
+
+Gateway-side connectors acquire data from heterogeneous source devices and
+convert that data into the Gateway's common internal model.
+
+Therefore:
+
+`SensorConnector` ≠ `IConnector`
+
+The `SensorConnector` does not implement `IConnector`.
+
+---
+
+## Gateway Boundary
+
+The architectural boundary is intentionally placed after the raw
+transport:
+
+```text
+SOURCE DEVICE                         EDGE GATEWAY
+
+SensorReading
+     │
+     ▼
+SensorConnector
+     │
+     ▼
+Raw Transport
+     │
+     │
+═════╪════════════════════════════════
+     │
+     ▼
+ESP32Connector
+     │
+     ▼
+Metric
+     │
+     ▼
+DeviceData
+```
+
+`SensorReading` is source-specific.
+
+`Metric` and `DeviceData` belong to the Gateway's internal data model.
+
+This prevents the ESP32 from depending on the Gateway's internal
+representation.
 
 ---
 
@@ -168,21 +270,35 @@ during its lifetime.
 
 - Single Responsibility Principle
 - Dependency Injection
-- Programming to interfaces
+- Programming to interfaces for sensor devices
 - Hardware abstraction
-- Common internal data model
+- Separation of source and Gateway responsibilities
+- No Sparkplug or MQTT protocol knowledge
+- No dependency on the Gateway's internal data model
 
 ---
 
 ## Future Extensions
 
-Additional connectors can be introduced without modifying the gateway
-core.
+Additional sensors can be added by implementing `ISensor`.
 
-Examples
+Examples:
 
+- BME280
+- CO₂ Sensor
+- Pressure Sensor
+- Accelerometer
+
+Additional Gateway-side connectors are independent of the
+`SensorConnector`.
+
+Examples:
+
+- ESP32Connector
 - OPCUAConnector
 - ModbusConnector
 - RESTConnector
 
-Each connector produces the same `DeviceData` representation.
+Adding a new Gateway connector does not require changes to the
+`SensorConnector` as long as the source-device transport contract remains
+unchanged.
