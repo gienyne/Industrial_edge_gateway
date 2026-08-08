@@ -2,14 +2,11 @@
 
 ## Purpose
 
-The `Configuration` class stores the runtime settings required by the
+The `Configuration` class stores all application settings required by the
 Industrial Edge Gateway.
 
-It provides a single source of configuration for the gateway components
-without introducing global state.
-
-The configuration belongs to the Industrial Edge Gateway and is independent
-from the configuration of individual source devices.
+It provides a single source of gateway-level configuration without
+introducing global state.
 
 The class does not contain application logic.
 
@@ -19,50 +16,17 @@ The class does not contain application logic.
 
 The `Configuration` class
 
-- stores gateway application settings;
+- stores gateway-level application settings;
 - validates configuration values;
 - provides read-only access through getters.
 
 The class never
 
-- communicates with source devices;
-- reads sensor data;
-- creates metrics;
+- communicates with sensors;
+- acquires source data;
 - encodes Sparkplug messages;
-- publishes MQTT messages.
-
----
-
-## Configuration Ownership
-
-Configuration is separated according to the architectural boundary.
-
-```text
-+-------------------------+
-| Source Device           |
-|                         |
-| Local Configuration     |
-|                         |
-| - sensor settings       |
-| - acquisition settings  |
-| - source-specific data  |
-+------------┬------------+
-             │
-             │ Raw Transport
-             ▼
-+-------------------------+
-| Industrial Edge Gateway |
-|                         |
-| Configuration           |
-|                         |
-| - MQTT settings         |
-| - Sparkplug settings    |
-| - gateway runtime       |
-+-------------------------+
-```
-
-Source devices may therefore have their own local configuration without
-becoming dependent on the gateway configuration model.
+- publishes MQTT messages;
+- contains application logic.
 
 ---
 
@@ -70,53 +34,85 @@ becoming dependent on the gateway configuration model.
 
 ### MQTT
 
-The gateway configuration contains the parameters required to communicate
-with the MQTT broker.
-
 - Broker Address
 - Broker Port
 - Client ID
 
 ### Sparkplug
 
-The gateway configuration contains the parameters required for Sparkplug B
-publication.
-
 - Group ID
 - Edge Node ID
 
 ### Gateway Runtime
 
-The gateway configuration contains runtime parameters controlling the
-gateway application.
-
 - Publish Interval
+
+These parameters apply to the gateway as a whole.
+
+Source-specific configuration is not stored in the global `Configuration`
+object.
 
 ---
 
 ## Position in the Architecture
 
 ```text
-                         Configuration
-                               │
-              ┌────────────────┼────────────────┐
-              │                │                │
-              ▼                ▼                ▼
-       IConnector      ISparkplugEncoder  IMqttPublisher
-              │                │                │
-              │                │                │
-              └────────────────┼────────────────┘
-                               │
-                       GatewayApplication
+                    Configuration
+                          │
+            ┌─────────────┼─────────────┐
+            ▼             ▼             ▼
+
+     SparkplugEncoder  MQTTPublisher  GatewayApplication
 ```
 
-Configuration is provided to the gateway components through dependency
-injection.
+Configuration is shared by gateway components through dependency injection.
 
-The configuration does not determine how individual source devices are
-accessed.
+Connector-specific configuration is handled separately by the corresponding
+gateway connector.
 
-That responsibility belongs to the corresponding connector.
+---
+
+## Connector Configuration
+
+Each gateway connector owns the configuration required for its specific
+source device.
+
+Connector-specific configuration is represented by a dedicated
+configuration structure and injected when the connector is constructed.
+
+For example:
+
+```cpp
+struct ESP32ConnectorConfig
+{
+    const char* deviceId;
+
+    // Future transport-specific parameters
+};
+```
+
+The connector receives this configuration during construction:
+
+```cpp
+ESP32Connector(const ESP32ConnectorConfig& config);
+```
+
+The global `Configuration` therefore does not contain a single global
+`deviceId`.
+
+The ownership and structure of connector-specific configuration are
+documented in `gateway-connectors.md`.
+
+The mechanism used to populate connector configuration remains open.
+
+Possible future sources include
+
+- hard-coded values;
+- JSON configuration files;
+- other external configuration sources.
+
+Changing the configuration source does not require changes to the
+`IConnector` interface or the common internal data model.
 
 ---
 
@@ -145,43 +141,48 @@ public:
 };
 ```
 
-The interface provides read-only access to configuration values.
-
-Configuration values are not modified directly by other components.
+The interface provides read-only access to the configuration values used by
+the gateway components.
 
 ---
 
 ## Loading and Validation
 
-Configuration loading and validation are separate operations.
+Configuration loading and validation are separate responsibilities.
+
+The `load()` method obtains the configuration values from the configured
+source.
+
+The `validate()` method checks whether the loaded values are valid for
+gateway operation.
+
+Conceptually:
 
 ```text
-load()
-  │
-  ▼
-Configuration values
-  │
-  ▼
-validate()
-  │
-  ├── valid ──────► Gateway startup
-  │
-  └── invalid ────► Startup failure
+Configuration Source
+        │
+        ▼
+      load()
+        │
+        ▼
+   Configuration
+        │
+        ▼
+     validate()
+        │
+        ▼
+  GatewayApplication
 ```
 
-`load()` obtains the configuration values from the configured source.
-
-`validate()` checks whether the loaded values are valid for the gateway.
-
-The `GatewayApplication` is responsible for invoking these operations during
-startup.
+The gateway should not start normal operation if the required gateway
+configuration is invalid.
 
 ---
 
 ## Dependency Injection
 
-`Configuration` is created by the `GatewayApplication` and passed to the
-components that require gateway configuration.
+The `Configuration` object is created by `GatewayApplication` and passed to
+components that require gateway-level configuration.
 
 ```text
 GatewayApplication
@@ -189,66 +190,49 @@ GatewayApplication
         ▼
  Configuration
         │
-        ├──────────────► SparkplugEncoder
-        │
-        └──────────────► MQTTPublisher
+ ┌──────┼───────────────┐
+ ▼      ▼               ▼
+
+Encoder  MQTTPublisher  other gateway components
 ```
 
-The configuration is therefore explicit and traceable through the
-application dependencies.
-
-No component accesses configuration through global variables or a
-Singleton.
+This keeps configuration explicit and avoids hidden dependencies.
 
 ---
 
-## Separation from Source-Device Configuration
+## Source-Device Configuration
 
-The gateway configuration must not contain parameters that belong
-exclusively to a source device.
+Source devices may have configuration that is completely independent from
+the gateway configuration.
 
-For example, sensor-specific acquisition parameters remain on the source
-device:
+For example, an ESP32 may have its own local configuration required for
+sensor acquisition or source-side communication.
 
-```text
-ESP32
- ├── Sensor configuration
- ├── Acquisition settings
- └── Raw data transmission settings
-```
+This configuration belongs to the source device and is not part of the
+gateway `Configuration`.
 
-while the gateway manages:
+The distinction is therefore:
 
 ```text
+Source Device
+┌─────────────────────────────┐
+│ Local device configuration  │
+│ Sensor configuration        │
+│ Source-side parameters      │
+└─────────────────────────────┘
+
+             │
+             │ Raw Transport
+             ▼
+
 Industrial Edge Gateway
- ├── MQTT connection
- ├── Sparkplug identity
- └── Gateway runtime
+┌─────────────────────────────┐
+│ Gateway Configuration       │
+│ Connector Configuration     │
+└─────────────────────────────┘
 ```
 
-This separation prevents the gateway configuration model from becoming
-coupled to a specific source-device implementation.
-
----
-
-## Device Identity
-
-Each source device must have its own identity so that the gateway can
-distinguish between multiple devices.
-
-The `deviceId` is therefore not part of the global `Configuration` model.
-
-The exact ownership and provisioning mechanism for source-device identities
-remains an open architectural decision.
-
-Possible approaches include
-
-- providing the device ID when constructing a connector;
-- defining a connector-specific configuration;
-- loading device identities from a future gateway configuration source.
-
-This decision will be made when the concrete connector architecture is
-designed.
+Gateway configuration and source-device configuration are independent.
 
 ---
 
@@ -257,23 +241,24 @@ designed.
 - Single Responsibility Principle
 - Dependency Injection
 - Explicit configuration ownership
-- Read-only access
+- Read-only access through getters
 - No global variables
 - No Singleton
-- Separation between gateway and source-device configuration
+- Separation of gateway and source-device configuration
 
 ---
 
 ## Future Extensions
 
-Future versions may load gateway configuration from different sources,
-such as:
+Future versions may load gateway configuration from external sources such
+as
 
-- JSON files
-- Environment variables
-- Configuration files
-- EEPROM
-- SD Card
+- JSON files;
+- environment variables;
+- other configuration providers.
 
-The configuration interface can be extended without requiring changes to
-the gateway components that consume it.
+Connector-specific configuration may also be populated from external
+configuration sources.
+
+These changes should not require modifications to the common gateway data
+model or the `IConnector` interface.
