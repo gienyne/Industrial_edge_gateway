@@ -43,26 +43,26 @@ The architecture is divided into two main areas.
         │ Raw Device Data
         ▼
 +-----------------------------------------------+
-| Industrial Edge Gateway                        |
-|                                                 |
-| ESP32Connector   OPCUAConnector   Modbus...     |
-|        │               │             │         |
-|        └───────────────┼─────────────┘         |
-|                        ▼                       |
-|                     Metric                     |
-|                        │                       |
-|                        ▼                       |
-|                   DeviceData                   |
-|                        │                       |
-|                        ▼                       |
-|              SparkplugEncoder                  |
-|                        │                       |
-|                        ▼                       |
-|                SparkplugPayload                |
-|                        │                       |
-|                        ▼                       |
-|                 MQTTPublisher                  |
-+------------------------┼-----------------------+
+| Industrial Edge Gateway                       |
+|                                               |
+| ESP32Connector   OPCUAConnector   Modbus...   |
+|        │               │             │        |
+|        └───────────────┼─────────────┘        |
+|                        ▼                      |
+|                     Metric                    |
+|                        │                      |
+|                        ▼                      |
+|                   DeviceData                  |
+|                        │                      |
+|                        ▼                      |
+|              SparkplugEncoder                 |
+|                        │                      |
+|                        ▼                      |
+|                SparkplugPayload               |
+|                        │                      |
+|                        ▼                      |
+|                 MQTTPublisher                 |
++------------------------┼----------------------+
                          │
                          ▼
                     MQTT Broker
