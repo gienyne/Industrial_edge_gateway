@@ -97,8 +97,8 @@ remains independent of the Sparkplug representation.
 
 ### Integration
 
-- [ ] Validate ESP32 → MQTT Broker → Gateway data flow
-- [ ] Validate Gateway → Sparkplug B → MQTT Broker data flow
+- [ ] Validate ESP32 -> MQTT Broker -> Gateway data flow
+- [ ] Validate Gateway -> Sparkplug B -> MQTT Broker data flow
 - [ ] Verify device identity
 - [ ] Verify metric values
 - [ ] Verify Sparkplug topic structure
