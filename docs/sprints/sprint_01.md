@@ -23,14 +23,14 @@ The Sprint 1 implementation uses one source device:
 ```text
                     SOURCE DEVICE
 ┌───────────────────────────────────────────┐
-│                   ESP32                    │
-│                                             │
-│   KY-015      KY-002       KY-018          │
-│      │           │           │             │
-│      └───────────┼───────────┘             │
-│                   ▼                        │
-│           SensorConnector                  │
-└──────────────────┬──────────────────────────┘
+│                   ESP32                   │
+│                                           │
+│   KY-015      KY-002       KY-018         │
+│      │           │           │            │
+│      └───────────┼───────────┘            │
+│                   ▼                       │
+│           SensorConnector                 │
+└──────────────────┬────────────────────────┘
                    │
                    │ MQTT
                    ▼
@@ -39,19 +39,19 @@ The Sprint 1 implementation uses one source device:
                    │ MQTT
                    ▼
 ┌───────────────────────────────────────────┐
-│          INDUSTRIAL EDGE GATEWAY           │
-│                                             │
-│            ESP32Connector                  │
-│                  │                         │
-│                  ▼                         │
-│              DeviceData                    │
-│                  │                         │
-│                  ▼                         │
-│           SparkplugEncoder                 │
-│                  │                         │
-│                  ▼                         │
-│             MQTTPublisher                  │
-└──────────────────┬──────────────────────────┘
+│          INDUSTRIAL EDGE GATEWAY          │
+│                                           │
+│            ESP32Connector                 │
+│                  │                        │
+│                  ▼                        │
+│              DeviceData                   │
+│                  │                        │
+│                  ▼                        │
+│           SparkplugEncoder                │
+│                  │                        │
+│                  ▼                        │
+│             MQTTPublisher                 │
+└──────────────────┬────────────────────────┘
                    │
                    │ Sparkplug B / MQTT
                    ▼
