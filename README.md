@@ -149,9 +149,9 @@ progresses.
 
 Architectural decisions and design details are documented separately.
 
-- `ROADMAP.md` — development roadmap and sprint planning;
-- `CONTRIBUTING.md` — development and contribution rules;
-- `docs/architecture/` — architectural documentation and decisions.
+- `ROADMAP.md` -> development roadmap and sprint planning;
+- `CONTRIBUTING.md` -> development and contribution rules;
+- `docs/architecture/` -> architectural documentation and decisions.
 
 The documentation is kept separate from the implementation so that
 architectural decisions can be reviewed independently from the code.
