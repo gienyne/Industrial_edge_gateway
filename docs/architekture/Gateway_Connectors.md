@@ -191,10 +191,17 @@ DeviceData
 
 ## Connector Configuration
 
-Each connector has its own configuration structure and, through it, its own
-device identity. Connector-specific configuration — including the
-`deviceId` — is not stored in the global `Configuration` object, because the
-gateway may handle multiple source devices.
+Connectors may require configuration specific to their source system.
+
+Connector-specific configuration is kept separate from the global
+`Configuration` object because the gateway may handle multiple source
+devices and different source technologies.
+
+The global `Configuration` contains gateway-wide settings such as MQTT,
+Sparkplug and runtime parameters.
+
+A connector-specific configuration contains only parameters required by
+that connector and its source.
 
 For example:
 
@@ -207,56 +214,63 @@ struct ESP32ConnectorConfig
 };
 ```
 
-The configuration is injected when the connector is constructed:
+If a connector requires additional source-specific parameters, they can be
+added to its configuration structure.
+
+For example:
 
 ```cpp
-class ESP32Connector : public IConnector
+struct OPCUAConnectorConfig
 {
-public:
+    const char* deviceId;
 
-    explicit ESP32Connector(const ESP32ConnectorConfig& config);
-
-    bool initialize() override;
-
-    DeviceData collectData() override;
-
-    const char* name() const override;
+    // Future OPC UA-specific parameters
 };
 ```
 
-The same principle applies to other connector types, each with its own
-configuration structure:
+The exact parameters of future connectors are not defined yet.
+
+A connector that requires no additional parameters beyond the device
+identity may accept it directly as a constructor parameter rather than
+through a dedicated configuration structure.
+
+---
+
+## Device Identity
+
+Each connector represents one source device and therefore owns the identity
+of that source through its connector-specific configuration.
+
+For example:
 
 ```text
 ESP32ConnectorConfig
-        ├── deviceId
-        └── transport-specific parameters
+        │
+        └── deviceId
 
 OPCUAConnectorConfig
-        ├── deviceId
-        └── OPC UA parameters
+        │
+        └── deviceId
 ```
 
-Examples:
+The `deviceId` is therefore not part of the global Gateway `Configuration`.
 
-```text
-ESP32Connector  → deviceId = ESP32-01
-OPCUAConnector  → deviceId = PLC-01
-ModbusConnector → deviceId = Motor-01
-```
+This allows multiple connectors to represent different source devices
+without introducing a single global device identity.
 
-The mechanism used to populate these configuration structures is
-intentionally independent from the connector interface. Values may
-initially be provided directly by `GatewayApplication` and may later
-originate from an external configuration source, without affecting
+The mechanism used to populate connector-specific configuration remains
+independent from the connector interface.
+
+Values may initially be provided directly by `GatewayApplication` and may
+later originate from an external configuration source without changing
 `IConnector` or the common internal data model.
 
 ---
 
 ## Dependency Injection
 
-`GatewayApplication` acts as the composition root and creates the
-connectors together with their dependencies.
+`GatewayApplication` acts as the composition root and creates connectors
+together with their required dependencies.
 
 Conceptually:
 
@@ -322,8 +336,8 @@ The `DeviceData` objects are processed independently.
 
 Connectors never merge their data into a shared `DeviceData` object.
 
-This allows heterogeneous source devices to be integrated without
-changing the common gateway processing pipeline.
+This allows heterogeneous source devices to be integrated without changing
+the common gateway processing pipeline.
 
 ---
 
@@ -335,8 +349,8 @@ layers.
 `SensorConnector` is a source-side component responsible for aggregating
 local sensors on a source device.
 
-`IConnector` represents the gateway-side abstraction used to integrate
-that source device into the Industrial Edge Gateway.
+`IConnector` represents the gateway-side abstraction used to integrate that
+source device into the Industrial Edge Gateway.
 
 ```text
 SOURCE DEVICE
@@ -390,8 +404,8 @@ Possible extensions include
 - other industrial communication protocols;
 - additional source-device types.
 
-The common `IConnector` interface and `DeviceData` representation remain
-the stable integration boundary.
+The common `IConnector` interface and `DeviceData` representation remain the
+stable integration boundary.
 
 Future configuration sources may also be introduced without changing the
 connector interface.
