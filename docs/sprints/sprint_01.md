@@ -67,7 +67,7 @@ remains independent of the Sparkplug representation.
 
 ### ESP32 Source Device
 
-- [ ] Create Git repository
+- [x] Create Git repository
 - [ ] Configure PlatformIO
 - [ ] Connect KY-015
 - [ ] Connect KY-002
