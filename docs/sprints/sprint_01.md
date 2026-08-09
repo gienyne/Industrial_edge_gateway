@@ -28,7 +28,7 @@ The Sprint 1 implementation uses one source device:
 │   KY-015      KY-002       KY-018         │
 │      │           │           │            │
 │      └───────────┼───────────┘            │
-│                   ▼                       │
+│                  ▼                       │
 │           SensorConnector                 │
 └──────────────────┬────────────────────────┘
                    │
