@@ -49,20 +49,22 @@ The class never
 
 These parameters apply to the gateway as a whole.
 
-Source-specific configuration is not stored in the global `Configuration`
-object.
+Source-specific configuration is not stored in the global
+`Configuration` object.
 
 ---
 
 ## Position in the Architecture
 
 ```text
-                    Configuration
-                          │
-            ┌─────────────┼─────────────┐
-            ▼             ▼             ▼
-
-     SparkplugEncoder  MQTTPublisher  GatewayApplication
+                 GatewayApplication
+                         │
+                         ▼
+                  Configuration
+                         │
+              ┌──────────┴──────────┐
+              ▼                     ▼
+      SparkplugEncoder        MQTTPublisher
 ```
 
 Configuration is shared by gateway components through dependency injection.
@@ -74,11 +76,12 @@ gateway connector.
 
 ## Connector Configuration
 
-Each gateway connector owns the configuration required for its specific
-source device.
+A gateway connector may require configuration specific to its source
+device.
 
 Connector-specific configuration is represented by a dedicated
-configuration structure and injected when the connector is constructed.
+configuration structure when required and is injected when the connector is
+constructed.
 
 For example:
 
@@ -190,10 +193,10 @@ GatewayApplication
         ▼
  Configuration
         │
- ┌──────┼───────────────┐
- ▼      ▼               ▼
+ ┌──────┼────────────────┐
+ ▼      ▼                ▼
 
-Encoder  MQTTPublisher  other gateway components
+Encoder  MQTTPublisher   other gateway components
 ```
 
 This keeps configuration explicit and avoids hidden dependencies.
