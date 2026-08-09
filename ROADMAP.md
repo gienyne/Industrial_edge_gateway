@@ -8,7 +8,7 @@ stable foundation throughout the project.
 
 ---
 
-# Sprint 1 — Foundation
+# Sprint 1 -> Foundation
 
 ## Goal
 
@@ -82,7 +82,7 @@ independent of the Sparkplug representation.
 
 ---
 
-# Sprint 2 — Multi-Source Gateway
+# Sprint 2 -> Multi-Source Gateway
 
 ## Goal
 
@@ -143,7 +143,7 @@ technology.
 
 ---
 
-# Sprint 3 — Data Persistence
+# Sprint 3 -> Data Persistence
 
 ## Goal
 
@@ -165,7 +165,7 @@ evaluation.
 
 ---
 
-# Sprint 4 — Backend & Visualization
+# Sprint 4 -> Backend & Visualization
 
 ## Goal
 
@@ -183,7 +183,7 @@ individual machine protocols.
 
 ---
 
-# Sprint 5 — Smart Factory Integration
+# Sprint 5 -> Smart Factory Integration
 
 ## Goal
 
