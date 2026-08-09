@@ -1,4 +1,4 @@
-# ADR-002 — Centralized Gateway Architecture
+# ADR-002: Centralized Gateway Architecture
 
 ## Status
 
