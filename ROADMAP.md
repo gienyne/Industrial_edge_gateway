@@ -211,7 +211,7 @@ integration.
 
 ---
 
-# Sprint 6 — Advanced Industrial Features
+# Sprint 6 -> Advanced Industrial Features
 
 ## Goal
 
