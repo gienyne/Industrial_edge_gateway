@@ -43,26 +43,26 @@ The architecture is divided into two main areas.
         │ Raw Device Data
         ▼
 +-----------------------------------------------+
-| Industrial Edge Gateway                       |
-|                                               |
-| ESP32Connector   OPCUAConnector   Modbus...   |
-|        │               │             │        |
-|        └───────────────┼─────────────┘        |
-|                        ▼                      |
-|                     Metric                    |
-|                        │                      |
-|                        ▼                      |
-|                   DeviceData                  |
-|                        │                      |
-|                        ▼                      |
-|              SparkplugEncoder                 |
-|                        │                      |
-|                        ▼                      |
-|                SparkplugPayload               |
-|                        │                      |
-|                        ▼                      |
-|                 MQTTPublisher                 |
-+------------------------┼----------------------+
+| Industrial Edge Gateway                        |
+|                                                 |
+| ESP32Connector   OPCUAConnector   Modbus...     |
+|        │               │             │         |
+|        └───────────────┼─────────────┘         |
+|                        ▼                       |
+|                     Metric                     |
+|                        │                       |
+|                        ▼                       |
+|                   DeviceData                   |
+|                        │                       |
+|                        ▼                       |
+|              SparkplugEncoder                  |
+|                        │                       |
+|                        ▼                       |
+|                SparkplugPayload                |
+|                        │                       |
+|                        ▼                       |
+|                 MQTTPublisher                  |
++------------------------┼-----------------------+
                          │
                          ▼
                     MQTT Broker
@@ -131,6 +131,9 @@ Source-specific data
 
 The gateway core therefore does not need to know whether data originated from
 an ESP32, an OPC UA server, a Modbus device or another source.
+
+See `gateway-connectors.md` for the connector interface, its semantics and
+the current and planned implementations.
 
 ---
 
@@ -347,6 +350,7 @@ The gateway then processes and publishes that device data independently.
 | `configuration.md`         | Gateway configuration                      |
 | `sensor-layer.md`          | Source-device sensor abstraction           |
 | `sensor-connector.md`      | Source-device sensor aggregation           |
+| `gateway-connectors.md`    | Gateway connector abstraction and implementations |
 | `sparkplug-encoder.md`     | Sparkplug B encoding                       |
 | `mqtt-publisher.md`        | MQTT transport layer                       |
 | `gateway-application.md`   | Application composition and lifecycle      |
@@ -364,11 +368,12 @@ recommended:
 3. `overview.md`
 4. `sensor-layer.md`
 5. `sensor-connector.md`
-6. `gateway-application.md`
-7. `configuration.md`
-8. `sparkplug-encoder.md`
-9. `mqtt-publisher.md`
-10. `adr/`
+6. `gateway-connectors.md`
+7. `gateway-application.md`
+8. `configuration.md`
+9. `sparkplug-encoder.md`
+10. `mqtt-publisher.md`
+11. `adr/`
 
 ---
 
