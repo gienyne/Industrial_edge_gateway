@@ -1,4 +1,4 @@
-# ADR-001 — Common Internal Data Model
+# ADR-001: Common Internal Data Model
 
 ## Status
 
