@@ -35,47 +35,6 @@ The architecture is divided into two main areas.
   </a>
 </p>
 
-```text
-+--------------------------------+
-| Source Device                  |
-|                                |
-| Sensor Layer                   |
-|       │                        |
-|       ▼                        |
-| SensorConnector                |
-|       │                        |
-|       ▼                        |
-| Raw Transport                  |
-+-------┼------------------------+
-        │
-        │
-        │ Raw Device Data
-        ▼
-+-----------------------------------------------+
-| Industrial Edge Gateway                       |
-|                                               |
-| ESP32Connector   OPCUAConnector   Modbus...   |
-|        │               │             │        |
-|        └───────────────┼─────────────┘        |
-|                        ▼                      |
-|                     Metric                    |
-|                        │                      |
-|                        ▼                      |
-|                   DeviceData                  |
-|                        │                      |
-|                        ▼                      |
-|              SparkplugEncoder                 |
-|                        │                      |
-|                        ▼                      |
-|                SparkplugPayload               |
-|                        │                      |
-|                        ▼                      |
-|                 MQTTPublisher                 |
-+------------------------┼----------------------+
-                         │
-                         ▼
-                    MQTT Broker
-```
 
 The exact raw transport between source devices and the gateway is intentionally
 kept independent from the gateway's internal data model.
