@@ -28,7 +28,7 @@ The architecture is divided into two main areas.
 
 <p align="center">
     <a href="https://github.com/gienyne/Industrial_edge_gateway/blob/main/docs/images/Architectural_Boundary.jpg">
-  <img src="../docs/architekture/images/Architectural_Boundary.jpg" width="900" alt="Edge Architecture">
+  <img src="../docs/architecture/images/Architectural_Boundary.jpg" width="900" alt="Edge Architecture">
 </a>
 </p>
 
