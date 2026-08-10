@@ -27,7 +27,7 @@ communication protocol.
 The architecture is divided into two main areas.
 
 <p align="center">
-    <a href="https://app.diagrams.net/#G1J8eymbwmqrkZVh_oXr2aJno10cOFN5az#%7B%22pageId%22%3A%22SIOvtTyLQ3Kl_L9EAiRQ%22%7D">
+    <a href="https://github.com/gienyne/Industrial_edge_gateway/blob/main/docs/images/Architectural_Boundary.jpg">
   <img src="docs/architekture/images/Architectural_Boundary.jpg" width="900" alt="Edge Architecture">
 </a>
 </p>
