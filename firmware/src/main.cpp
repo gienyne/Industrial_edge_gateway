@@ -1,9 +1,11 @@
 #include <Arduino.h>
 #include "DHT11Sensor.h"
 #include "ShockSensor.h"
+#include "LightSensor.h"
 
 DHT11Sensor dhtSensor(DHT11_PIN);
 ShockSensor shockSensor(SHOCKSENSOR_PIN);
+LightSensor lightSensor(LIGHT_PIN);
 
 void setup() {
 
@@ -26,6 +28,13 @@ void setup() {
   else{
     Serial.println("ShockSensor initialization failed");
   }
+
+  if(lightSensor.initialize()){
+    Serial.println("LightSensor initialized");
+  }
+  else{
+    Serial.println("LightSensor initialization failed");
+  }
   
 }
 
@@ -33,6 +42,7 @@ void loop() {
 
   SensorReading dhtReading;
   SensorReading shockReading;
+  SensorReading lightReading;
 
   if(dhtSensor.read(dhtReading)){
     Serial.print("temperature: ");
@@ -50,6 +60,11 @@ void loop() {
   if(shockSensor.read(shockReading)){
     Serial.print("shock detected: ");
     Serial.println(shockReading.data.shock.detected ? "YES" : "NO");
+  }
+
+  if(lightSensor.read(lightReading)){
+    Serial.print("light intensity (raw): ");
+    Serial.println(lightReading.data.light.intensity);
   }
 
   delay(2000);
