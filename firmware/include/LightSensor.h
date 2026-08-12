@@ -5,6 +5,9 @@
 #include "ISensor.h"
 #define LIGHT_PIN 34
 
+/**
+ * @brief Sensor implementation for ambient light measurement.
+ */
 class LightSensor : public ISensor
 {
     public:
