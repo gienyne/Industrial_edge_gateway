@@ -3,6 +3,7 @@
 #include "ShockSensor.h"
 #include "LightSensor.h"
 #include "SensorConnector.h"
+#include "MqttPublisher.h"
 
 DHT11Sensor dhtSensor(DHT11_PIN);
 ShockSensor shockSensor(SHOCKSENSOR_PIN);
@@ -10,6 +11,8 @@ LightSensor lightSensor(LIGHT_PIN);
 
 SensorArray sensors = {&dhtSensor, &shockSensor, &lightSensor};
 SensorConnector connector(sensors);
+
+MqttPublisher mqttPublisher;
 
 void setup() {
 
@@ -26,46 +29,32 @@ void setup() {
      Serial.println("SensorConnector initialization failed");
   }
 
+  if(mqttPublisher.initialize()){
+    Serial.println("MqttPublisher initialized");
+  }
+
+  else {
+     Serial.println("MqttPublisher initialization failed");
+  }
+
 }
 
 void loop() {
 
+  mqttPublisher.ensureConnection();
   SourceData data = connector.collectData();
 
   Serial.print("collected ");
-  Serial.println(data.count);
+  Serial.print(data.count);
+  Serial.println(" readings");
 
-  Serial.println("reading:");
-
-  for(size_t i = 0; i < data.count; i++){
-
-    SensorReading& reading = data.readings[i];
-
-    switch(reading.type){
-
-      case SensorType::DHT11:
-
-        Serial.print("  DHT11 -> temperature: ");
-        Serial.print(reading.data.dht11.temperature);
-        Serial.print(" °C, humidity: ");
-        Serial.print(reading.data.dht11.humidity);
-        Serial.println(" %");
-        break;
-
-      case SensorType::SHOCK:
-        
-        Serial.print("  Shock -> detected: ");
-        Serial.println(reading.data.shock.detected ? "YES" : "NO");
-        break;
-
-      case SensorType::LIGHT:
-
-        Serial.print("  Light -> intensity (raw): ");
-        Serial.println(reading.data.light.intensity);
-        break;
-    }
+  if(mqttPublisher.publish(data)){
+    Serial.println("published to MQTT broker");
+  }
+  else{
+    Serial.println("MQTT publish failed");
   }
 
   delay(2000);
-
+  
 }
