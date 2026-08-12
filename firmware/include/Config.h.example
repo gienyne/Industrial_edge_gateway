@@ -1,0 +1,14 @@
+// Config example
+#ifndef CONFIG_H
+#define CONFIG_H
+
+#define WIFI_SSID "Your own wifi ssid"
+#define WIFI_PASSWORD "Your wifi password"
+
+#define MQTT_BROKER "broker.hivemq.com"
+#define MQTT_PORT 1883
+
+#define DEVICE_ID "esp32-dz"
+#define MQTT_CLIENT_ID "esp32-dz-client" 
+
+#endif
