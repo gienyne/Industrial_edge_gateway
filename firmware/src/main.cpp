@@ -2,10 +2,14 @@
 #include "DHT11Sensor.h"
 #include "ShockSensor.h"
 #include "LightSensor.h"
+#include "SensorConnector.h"
 
 DHT11Sensor dhtSensor(DHT11_PIN);
 ShockSensor shockSensor(SHOCKSENSOR_PIN);
 LightSensor lightSensor(LIGHT_PIN);
+
+SensorArray sensors = {&dhtSensor, &shockSensor, &lightSensor};
+SensorConnector connector(sensors);
 
 void setup() {
 
@@ -15,56 +19,51 @@ void setup() {
   Serial.println("industrial edge gateway");
   Serial.println("ESP32 is running");
 
-  if(dhtSensor.initialize()){
-    Serial.println("DHT11Sensor initialized");
+  if(connector.initialize()){
+    Serial.println("SensorConnector initialized");
   }
   else {
-     Serial.println("DHT11Sensor initialization failed");
+     Serial.println("SensorConnector initialization failed");
   }
 
-  if(shockSensor.initialize()){
-    Serial.println("ShockSensor initialized");
-  }
-  else{
-    Serial.println("ShockSensor initialization failed");
-  }
-
-  if(lightSensor.initialize()){
-    Serial.println("LightSensor initialized");
-  }
-  else{
-    Serial.println("LightSensor initialization failed");
-  }
-  
 }
 
 void loop() {
 
-  SensorReading dhtReading;
-  SensorReading shockReading;
-  SensorReading lightReading;
+  SourceData data = connector.collectData();
 
-  if(dhtSensor.read(dhtReading)){
-    Serial.print("temperature: ");
-    Serial.print(dhtReading.data.dht11.temperature);
-    Serial.println(" °C");
+  Serial.print("collected ");
+  Serial.println(data.count);
 
-    Serial.print("humidity: ");
-    Serial.print(dhtReading.data.dht11.humidity);
-    Serial.println(" %");
-  }
-  else{
-    Serial.println("DHT11 read failed");
-  }
+  Serial.println("reading:");
 
-  if(shockSensor.read(shockReading)){
-    Serial.print("shock detected: ");
-    Serial.println(shockReading.data.shock.detected ? "YES" : "NO");
-  }
+  for(size_t i = 0; i < data.count; i++){
 
-  if(lightSensor.read(lightReading)){
-    Serial.print("light intensity (raw): ");
-    Serial.println(lightReading.data.light.intensity);
+    SensorReading& reading = data.readings[i];
+
+    switch(reading.type){
+
+      case SensorType::DHT11:
+
+        Serial.print("  DHT11 -> temperature: ");
+        Serial.print(reading.data.dht11.temperature);
+        Serial.print(" °C, humidity: ");
+        Serial.print(reading.data.dht11.humidity);
+        Serial.println(" %");
+        break;
+
+      case SensorType::SHOCK:
+        
+        Serial.print("  Shock -> detected: ");
+        Serial.println(reading.data.shock.detected ? "YES" : "NO");
+        break;
+
+      case SensorType::LIGHT:
+
+        Serial.print("  Light -> intensity (raw): ");
+        Serial.println(reading.data.light.intensity);
+        break;
+    }
   }
 
   delay(2000);

@@ -5,6 +5,9 @@
 #include "ISensor.h"
 #define SHOCKSENSOR_PIN 26
 
+/**
+ * @brief Sensor implementation for shock detection.
+ */
 class ShockSensor : public ISensor
 {
     public:
@@ -16,6 +19,7 @@ class ShockSensor : public ISensor
 
     private: 
           
+        // GPIO pin connected to the shock sensor
         uint8_t pin_;
 
 };
