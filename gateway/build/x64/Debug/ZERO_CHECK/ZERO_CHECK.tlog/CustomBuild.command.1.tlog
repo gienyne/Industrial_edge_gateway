@@ -1,0 +1,10 @@
+^C:\USERS\STEVE KINFACK\DOCUMENTS\GIT_PROJETS\INDUSTRIAL_EDGE_GATEWAY\GATEWAY\BUILD\CMAKEFILES\6500E7E1CE3E60F08D74F2FE959FAB3B\GENERATE.STAMP.RULE
+setlocal
+C:\Strawberry\c\bin\cmake.exe "-SC:/Users/Steve Kinfack/Documents/Git_projets/industrial_edge_gateway/gateway" "-BC:/Users/Steve Kinfack/Documents/Git_projets/industrial_edge_gateway/gateway/build" --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file "C:/Users/Steve Kinfack/Documents/Git_projets/industrial_edge_gateway/gateway/build/IndustrialEdgeGateway.sln"
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

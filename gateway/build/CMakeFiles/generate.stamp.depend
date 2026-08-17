@@ -1,0 +1,49 @@
+# CMake generation dependency list for this directory.
+C:/Strawberry/c/share/cmake-3.26/Modules/CMakeCInformation.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/CMakeCXXInformation.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/CMakeCommonLanguageInclude.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/CMakeDependentOption.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/CMakeFindDependencyMacro.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/CMakeGenericSystem.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/CMakeInitializeConfigs.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/CMakeLanguageInformation.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/CMakeRCInformation.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/CMakeSystemSpecificInformation.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/CMakeSystemSpecificInitialize.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/CheckCSourceCompiles.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/CheckIncludeFile.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/CheckLibraryExists.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/Compiler/CMakeCommonCompilerMacros.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/Compiler/MSVC-C.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/Compiler/MSVC-CXX.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/Compiler/MSVC.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/FindOpenSSL.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/FindPackageHandleStandardArgs.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/FindPackageMessage.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/FindThreads.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/Internal/CheckSourceCompiles.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/Platform/Windows-MSVC-C.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/Platform/Windows-MSVC-CXX.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/Platform/Windows-MSVC.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/Platform/Windows.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/Platform/WindowsPaths.cmake
+C:/Strawberry/c/share/cmake-3.26/Modules/SelectLibraryConfigurations.cmake
+C:/Users/Steve Kinfack/Documents/Git_projets/industrial_edge_gateway/gateway/CMakeLists.txt
+C:/Users/Steve Kinfack/Documents/Git_projets/industrial_edge_gateway/gateway/build/CMakeFiles/3.26.4/CMakeCCompiler.cmake
+C:/Users/Steve Kinfack/Documents/Git_projets/industrial_edge_gateway/gateway/build/CMakeFiles/3.26.4/CMakeCXXCompiler.cmake
+C:/Users/Steve Kinfack/Documents/Git_projets/industrial_edge_gateway/gateway/build/CMakeFiles/3.26.4/CMakeRCCompiler.cmake
+C:/Users/Steve Kinfack/Documents/Git_projets/industrial_edge_gateway/gateway/build/CMakeFiles/3.26.4/CMakeSystem.cmake
+C:/vcpkg/installed/x64-windows/share/eclipse-paho-mqtt-c/eclipse-paho-mqtt-cConfig-debug.cmake
+C:/vcpkg/installed/x64-windows/share/eclipse-paho-mqtt-c/eclipse-paho-mqtt-cConfig-release.cmake
+C:/vcpkg/installed/x64-windows/share/eclipse-paho-mqtt-c/eclipse-paho-mqtt-cConfig.cmake
+C:/vcpkg/installed/x64-windows/share/eclipse-paho-mqtt-c/eclipse-paho-mqtt-cConfigVersion.cmake
+C:/vcpkg/installed/x64-windows/share/nlohmann_json/nlohmann_jsonConfig.cmake
+C:/vcpkg/installed/x64-windows/share/nlohmann_json/nlohmann_jsonConfigVersion.cmake
+C:/vcpkg/installed/x64-windows/share/nlohmann_json/nlohmann_jsonTargets.cmake
+C:/vcpkg/installed/x64-windows/share/openssl/vcpkg-cmake-wrapper.cmake
+C:/vcpkg/installed/x64-windows/share/pahomqttcpp/PahoMqttCppConfig.cmake
+C:/vcpkg/installed/x64-windows/share/pahomqttcpp/PahoMqttCppConfigVersion.cmake
+C:/vcpkg/installed/x64-windows/share/pahomqttcpp/PahoMqttCppTargets-debug.cmake
+C:/vcpkg/installed/x64-windows/share/pahomqttcpp/PahoMqttCppTargets-release.cmake
+C:/vcpkg/installed/x64-windows/share/pahomqttcpp/PahoMqttCppTargets.cmake
+C:/vcpkg/scripts/buildsystems/vcpkg.cmake

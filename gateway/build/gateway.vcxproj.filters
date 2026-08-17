@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="16.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\Steve Kinfack\Documents\Git_projets\industrial_edge_gateway\gateway\src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Steve Kinfack\Documents\Git_projets\industrial_edge_gateway\gateway\src\ESP32Connector.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\Steve Kinfack\Documents\Git_projets\industrial_edge_gateway\gateway\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="C:\vcpkg\installed\x64-windows\share\nlohmann_json\nlohmann_json.natvis" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{39B81815-604F-39A4-82C2-AD791F5231B8}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
