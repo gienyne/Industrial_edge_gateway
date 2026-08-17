@@ -119,7 +119,7 @@ bool MqttPublisher::publish(const SourceData& data)
     size_t len = serializeJson(doc, buffer);
 
     // Define device topic
-    String topic = String("raw/") + MQTT_CLIENT_ID ;
+    String topic = String("raw/") + DEVICE_ID ;
 
     return mqttClient_.publish(topic.c_str(), buffer, len);
     
