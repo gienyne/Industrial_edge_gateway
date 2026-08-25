@@ -11,7 +11,7 @@ enum class MetricDataType
 {
     Boolean,
     Integer,
-    Float,
+    Double,
     String
 };
 

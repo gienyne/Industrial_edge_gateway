@@ -45,6 +45,8 @@ void ESP32Connector::message_arrived(mqtt::const_message_ptr msg){
 
     std::lock_guard<std::mutex> lock(mutex_);
     std::string deviceId = extractDeviceId(msg->get_topic());
+
+    // Keep only the most recent payload for each device.
     pendingPayloads_[deviceId] = msg->get_payload_str();
 
 }
@@ -65,6 +67,8 @@ std::vector<DeviceData> ESP32Connector::collectData()
         return {};
     }
 
+        // Move pending messages out of the shared buffer.
+        // New MQTT messages can now be received immediately.
         payloadsToProcess.swap(pendingPayloads_);
 
     }
@@ -85,7 +89,7 @@ DeviceData ESP32Connector::parsePayload(const std::string& deviceId, const std::
 
     json doc = json::parse(payload);
 
-    data.deviceId = doc.value("deviceId", config_.deviceId);
+    data.deviceId = deviceId;
     data.timestamp = doc.value("timestamp", 0ULL);
 
     for(const auto& reading : doc["readings"]){
@@ -93,13 +97,13 @@ DeviceData ESP32Connector::parsePayload(const std::string& deviceId, const std::
 
         if(type == "DHT11"){
             data.metrics.push_back(Metric{
-                "temperature", MetricDataType::Float,
+                "temperature", MetricDataType::Double,
                 reading.value("temperature", 0.0), "C",
                 reading.value("timestamp", 0ULL)
             });
 
             data.metrics.push_back(Metric{
-                "humidity", MetricDataType::Float,
+                "humidity", MetricDataType::Double,
                 reading.value("humidity", 0.0), "%",
                 reading.value("timestamp", 0ULL)
             });
