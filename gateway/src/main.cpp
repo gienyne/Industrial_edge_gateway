@@ -1,46 +1,69 @@
-#include <iostream>
-#include <thread>
+#include <atomic>
+#include <csignal>
 #include <chrono>
+#include <iostream>
+#include <memory>
+#include <thread>
+#include <vector>
 
 #include "ESP32Connector.h"
+#include "Gatewayapplication.h" 
+
+namespace 
+{
+    std::atomic<bool> running{true};
+
+    void handleSignal(int){
+        running = false;
+    }
+
+}
 
 int main(){
 
-    std::cout << "Industrial Edge Gateway starting..." << std::endl;
+   std::cout << "Industrial Edge Gateway starting..." << std::endl;
 
-    ESP32ConnectorConfig config;
-    config.deviceId = "esp32-connector";
-    config.brokerAddress = "tcp://broker.hivemq.com:1883";
-    config.topicFilter = "raw/+";
+   std::signal(SIGINT, handleSignal);
+   std::signal(SIGTERM, handleSignal);
 
-    ESP32Connector connector(config);
+   ESP32ConnectorConfig esp32Config;
+   esp32Config.deviceId = "esp32-connector";
+   esp32Config.brokerAddress = "tcp://localhost:1883"; //"tcp://broker.hivemq.com:1883";
+   esp32Config.topicFilter = "raw/+";
 
-    if(connector.initialize()){
-        std::cout << "ESP32Connector initialized" << std::endl;
-    }
-    else{
-        std::cerr << "ESP32Connector initialization failed" << std::endl;
-        return 1;
-    }
 
-    std::cout << "Collecting data. Press Ctrl+C to exit." << std::endl;
+   std::vector<std::unique_ptr<IConnector>> connectors;
+   connectors.push_back(std::make_unique<ESP32Connector>(esp32Config));
 
-    while(true){
 
-        std::vector<DeviceData> allData = connector.collectData();
+   GatewayApplicationConfig config;
+   config.encoderConfig.namespaceId = "spBv1.0";
+   config.encoderConfig.groupId = "SFM";
+   config.encoderConfig.edgeNodeId = "IndustrialEdgeGateway";
+   config.mqttConfig.brokerAddress = "tcp://localhost:1883";   //"tcp://broker.hivemq.com:1883";
+   config.mqttConfig.clientId = "industrial-edge-gateway";
 
-        for(const auto& data : allData){
 
-            std::cout << "DeviceData received for '" << data.deviceId << "':" << std::endl;
+   Gatewayapplication app(config, std::move(connectors));
 
-            for(const auto& metric : data.metrics){
-                std::cout << "  " << metric.name << " = ";
-                std::visit([](const auto& v) { std::cout << v; }, metric.value);
-                std::cout << " " << metric.unit << std::endl;
-            }
-        }
+   if(!app.initialize()){
+    
+    std::cerr << "GatewayApplication initialization failed" << std::endl;
+    return 1;
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    }
+   }
+
+   std::cout << "Gateway running. Press Ctrl+C to exit." << std::endl;
+
+   while(running){
+
+    app.pollOnce();
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+   }
+
+   std::cout << "Shutting down..." << std::endl;
+   app.shutdown();
+
     return 0;
 } 
