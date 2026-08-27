@@ -245,7 +245,10 @@ def on_message(client, userdata, msg) :
         return
 
 
-    print(f"\n[{info['message_type']}] {msg.topic}")
+    print(
+        f"\n[{info['message_type']}] {msg.topic}"
+        f"(retained={msg.retain})"
+        )
 
 
     # Display the timestamp if the field is present.

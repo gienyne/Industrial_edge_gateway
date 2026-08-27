@@ -35,6 +35,9 @@ struct GatewayApplicationConfig
      * The default discovery window is 3000 milliseconds.
      */
     std::chrono::milliseconds discoveryWindow{3000};
+
+
+    std::chrono::milliseconds deviceTimeout{15000};
 };
 
 
@@ -117,6 +120,9 @@ class Gatewayapplication
         // Latest known state of each device. Used to detect metric changes before publishing DDATA.
         std::map<std::string , DeviceData> lastKnownState_;
 
+
+        std::map<std::string, std::chrono::steady_clock::time_point> lastSeenAt_;
+
         /**
          * @brief Collects device data during the startup discovery period.
          */
@@ -139,6 +145,10 @@ class Gatewayapplication
          */
         void handleDeviceData(const DeviceData& data);
 
+
+        void checkDeviceTimeouts();
+
+
         /**
          * @brief Extracts changed metrics from a device update.
          * 
@@ -148,6 +158,10 @@ class Gatewayapplication
          * @return DeviceData containing only changed metrics.
          */
         DeviceData filterChangedMetrics(const DeviceData& previous, const DeviceData& incoming) const;
+
+
+
+        bool hasNewMetric(const DeviceData& previous, const DeviceData& incoming) const;
 
 };
 #endif
