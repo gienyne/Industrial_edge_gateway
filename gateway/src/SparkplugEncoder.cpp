@@ -10,6 +10,7 @@ namespace{
     constexpr const char* DBIRTH = "DBIRTH";
     constexpr const char* DDATA  = "DDATA";
     constexpr const char* DDEATH = "DDEATH";
+    constexpr const char* NCMD   = "NCMD";
 
     constexpr const char* BDSEQ_METRIC = "bdSeq";
     constexpr const char* REBIRTH_METRIC = "Node Control/Rebirth";
@@ -166,6 +167,12 @@ SparkplugPayload SparkplugEncoder::encodeNodeDeath()
     appendBdSeqMetric(payload);
 
     return serialize(payload, buildNodeTopic(NDEATH), /*qos=*/1, /*retain=*/false);
+}
+
+
+std::string SparkplugEncoder::nodeCommandTopic() const
+{
+    return  buildNodeTopic(NCMD);
 }
 
 
