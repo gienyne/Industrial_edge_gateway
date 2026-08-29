@@ -141,8 +141,6 @@ def validate(info, payload) :
 
     """
     Perform basic validation of the received Sparkplug message.
-
-    The checks are informational and do not stop the listener.
     """
     node_key = f"{info['group']}/{info['edge_node_id']}"
     message_type = info["message_type"]

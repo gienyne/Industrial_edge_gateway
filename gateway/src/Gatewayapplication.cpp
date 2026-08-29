@@ -137,6 +137,19 @@ bool Gatewayapplication::initialize()
 void Gatewayapplication::pollOnce()
 {
 
+    if(publisher_.consumeRebirthRequest()){
+        
+        std::cout << "GatewayApplication: NCMD Rebirth requested, republishing birth sequence" << std::endl;
+
+        if(!publishBirthSequence()){
+
+            std::cerr << "GatewayApplication: rebirth sequence (NCMD-triggered) failed" << std::endl;
+
+        }
+
+        return;
+    }
+
     std::vector<DeviceData> batch;
 
     /**

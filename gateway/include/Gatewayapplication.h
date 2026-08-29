@@ -36,7 +36,11 @@ struct GatewayApplicationConfig
      */
     std::chrono::milliseconds discoveryWindow{3000};
 
-
+    /**
+     * @brief Maximum time allowed without receiving data from a device.
+     * 
+     * A device exceeding this timeout is considered unavailable.
+     */
     std::chrono::milliseconds deviceTimeout{15000};
 };
 
@@ -120,7 +124,8 @@ class Gatewayapplication
         // Latest known state of each device. Used to detect metric changes before publishing DDATA.
         std::map<std::string , DeviceData> lastKnownState_;
 
-
+        // Time of the last data received from each device. 
+        // Used to detect device timeouts.
         std::map<std::string, std::chrono::steady_clock::time_point> lastSeenAt_;
 
         /**
@@ -145,7 +150,12 @@ class Gatewayapplication
          */
         void handleDeviceData(const DeviceData& data);
 
-
+        
+        /**
+         * @brief Checks for devices that have exceeded the configured timeout.
+         * 
+         * Publishes DDEATH for devices that are no longer reporting data.
+         */
         void checkDeviceTimeouts();
 
 
@@ -160,7 +170,15 @@ class Gatewayapplication
         DeviceData filterChangedMetrics(const DeviceData& previous, const DeviceData& incoming) const;
 
 
-
+        /**
+         * @brief Checks whether the incoming data contains a new metric.
+         * 
+         * @param previous Previous known device state.
+         * @param incoming Newly received device state.
+         * 
+         * @return true if the incoming data contains a metric not present in the previous state.
+         * @return false otherwise.
+         */
         bool hasNewMetric(const DeviceData& previous, const DeviceData& incoming) const;
 
 };

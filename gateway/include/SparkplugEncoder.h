@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <string>
 #include "Isparkplugencoder.h"
-
 #include "../build/proto/sparkplug_b.pb.h"
 
 /**
@@ -93,6 +92,14 @@ class SparkplugEncoder : public IsparkplugEncoder
          */
         SparkplugPayload buildWillPayload() override;
 
+        
+        /**
+         * @brief Returns the MQTT topic used to receive Node Control commands.
+         * 
+         * @return Sparkplug NCMD topic for this Edge Node.
+         */
+        std::string nodeCommandTopic() const override;
+
         /**
          * @brief Starts a new Sparkplug session.
          * 
@@ -111,7 +118,7 @@ class SparkplugEncoder : public IsparkplugEncoder
         std::uint64_t bdSeq_;
 
         /**
-         * @brief Builds a topic for an Edge Node-level message.
+         * @brief Sequence number used for Sparkplug messages.
          * 
          * The sequence number is advanced after each encoded message and
          * wraps from 255 back to 0.

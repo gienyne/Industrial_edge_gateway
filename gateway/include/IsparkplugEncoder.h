@@ -59,10 +59,21 @@ class IsparkplugEncoder
          */
         virtual SparkplugPayload encodeDeviceDeath(const std::string& deviceId) = 0;
     
+
+        /**
+         * @brief Returns the MQTT topic used for Node Control commands.
+         * 
+         * @return Sparkplug NCMD topic for the Edge Node.
+         */
+        virtual std::string nodeCommandTopic() const = 0;
+
+
         /**
          * @brief Builds the Sparkplug payload used for the MQTT Last Will.
          */
         virtual SparkplugPayload buildWillPayload() = 0;
+
+
 };
 
 #endif
