@@ -109,6 +109,12 @@ bool MqttPublisher::publish(const SourceData& data)
                 read["timestamp"] = reading.data.light.timestamp;
                 break;
 
+            case SensorType::BUTTON:
+                read["type"] = "BUTTON";
+                read["pressed"] = reading.data.button.pressed;
+                read["timestamp"] = reading.data.button.timestamp;
+                break;
+                
         }
 
     }

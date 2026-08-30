@@ -1,0 +1,25 @@
+# --- Gateway (C++ / CMake) ---
+gateway/build/
+
+# --- Build artifacts ---
+*.exe
+*.dll
+*.obj
+*.pdb
+*.ilk
+*.tlog
+*.vcxproj*
+CMakeFiles/
+CMakeCache.txt
+
+# --- Firmware (ESP32 / PlatformIO) ---
+firmware*/.pio/
+firmware*/include/Config.h
+
+
+# --- Python ---
+__pycache__/
+*.pyc
+
+# --- IDE ---
+.vscode/
