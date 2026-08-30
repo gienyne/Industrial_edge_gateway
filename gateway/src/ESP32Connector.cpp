@@ -163,6 +163,15 @@ DeviceData ESP32Connector::parsePayload(const std::string& deviceId, const std::
                 reading.value("timestamp", 0ULL)
             });
         }
+
+        else if(type == "BUTTON")
+        {
+            data.metrics.push_back({
+                "buttonPressed", MetricDataType::Boolean,
+                reading.value("pressed", false), "",
+                reading.value("timestamp", 0ULL)
+            });
+        }
     }
 
 }
