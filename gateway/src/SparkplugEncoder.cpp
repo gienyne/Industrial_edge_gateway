@@ -138,10 +138,9 @@ SparkplugPayload SparkplugEncoder::serialize(const Payload& payload, const std::
 }
 
 
-
-
-void SparkplugEncoder::onNewSession(){
-    bdSeq_ = (bdSeq_ == 255) ? 0 : bdSeq_ + 1;
+void SparkplugEncoder::setBdSeq(std::uint64_t bdSeq)
+{
+    bdSeq_ = bdSeq;
     seq_ = 0;
 }
 

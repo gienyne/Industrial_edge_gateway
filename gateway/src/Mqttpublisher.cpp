@@ -8,7 +8,7 @@ namespace
 }
 
 
-Mqttpublisher::Mqttpublisher(const MQTTPublisherConfig& config, SparkplugEncoder& encoder) : config_(config), encoder_(encoder), mqttClient_(config.brokerAddress, config.clientId)
+Mqttpublisher::Mqttpublisher(const MQTTPublisherConfig& config, SparkplugEncoder& encoder) : config_(config), encoder_(encoder), mqttClient_(config.brokerAddress, config.clientId), bdSeqManager_(config.bdSeqFilePath)
 {
 
 }
@@ -17,10 +17,9 @@ bool Mqttpublisher::initialize()
 {
 
     mqttClient_.set_callback(*this);
-    /**
-     * A new Sparkplug session starts with a new bdSeq value.
-     */
-    encoder_.onNewSession();
+   
+    
+    encoder_.setBdSeq(bdSeqManager_.nextSessionBdSeq());
 
     /**
      * The NDEATH message is used as the MQTT Last Will.
