@@ -6,6 +6,9 @@
 #include <mqtt/async_client.h>
 #include "SparkplugEncoder.h"
 #include "SparkplugPayload.h"
+#include "BdSeqManager.h"
+
+
 
 
 /**
@@ -22,6 +25,10 @@ struct MQTTPublisherConfig
      * @brief MQTT client identifier used by the gateway.
      */
     std::string clientId;
+
+
+    std::string bdSeqFilePath = "bdseq.dat";
+
 };
 
 
@@ -111,6 +118,8 @@ class Mqttpublisher : public virtual mqtt::callback
 
         // Eclipse Paho asynchronous MQTT client.
         mqtt::async_client mqttClient_;
+
+        BdSeqManager bdSeqManager_;
 
         // Indicates whether a Node Rebirth request is pending.
         std::atomic<bool> rebirthRequested_ {false};

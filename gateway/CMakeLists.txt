@@ -16,6 +16,7 @@ src/ESP32Connector.cpp
 src/SparkplugEncoder.cpp
 src/Gatewayapplication.cpp
 src/Mqttpublisher.cpp
+src/BdseqManager.cpp
 ${PROTO_FILE}
 )
 

@@ -100,13 +100,8 @@ class SparkplugEncoder : public IsparkplugEncoder
          */
         std::string nodeCommandTopic() const override;
 
-        /**
-         * @brief Starts a new Sparkplug session.
-         * 
-         * Advances the birth/death sequence number and resets the message
-         * sequence number for the new session.
-         */
-        void onNewSession();
+
+        void setBdSeq(std::uint64_t bdSeq);
 
     private:
 
