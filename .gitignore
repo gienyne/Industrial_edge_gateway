@@ -13,8 +13,9 @@ CMakeFiles/
 CMakeCache.txt
 
 # --- Firmware (ESP32 / PlatformIO) ---
-firmware/.pio/
-firmware/include/Config.h
+firmware*/.pio/
+firmware*/include/Config.h
+
 
 # --- Python ---
 __pycache__/
