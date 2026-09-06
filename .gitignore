@@ -23,3 +23,7 @@ __pycache__/
 
 # --- IDE ---
 .vscode/
+
+# --- OPC UA credentials and private keys ---
+gateway/config/config.json
+gateway/certs/gateway_key.pem

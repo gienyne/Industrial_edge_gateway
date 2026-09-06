@@ -1,0 +1,42 @@
+{
+  "gateway": {
+    "mqtt": {
+      "brokerAddress": "tcp://localhost:1883",
+      "clientId": "industrial-edge-gateway",
+      "bdSeqFilePath": "bdseq.dat"
+    },
+    "sparkplug": {
+      "namespaceId": "spBv1.0",
+      "groupId": "SFM",
+      "edgeNodeId": "IndustrialEdgeGateway"
+    },
+    "discoveryWindowMs": 3000,
+    "deviceTimeoutMs": 15000
+  },
+  "connectors": {
+    "esp32": {
+      "deviceId": "esp32-connector",
+      "brokerAddress": "tcp://localhost:1883",
+      "topicFilter": "raw/+"
+    },
+    "opcua": {
+      "sources": [
+        {
+          "endpoint": "opc.tcp://127.0.0.1:4840",
+          "deviceId": "aquacontrol-opcua",
+          "username": "YOUR USERNAME",
+          "password": "YOUR PASSWORD",
+          "certificatePath": "certs/gateway_cert.der",
+          "privateKeyPath": "certs/gateway_key.pem",
+          "metrics": [
+            { "nodeId": "ns=4;s=|var|CODESYS Control Win V3 x64.Application.GVL.Level", "metricName": "tankLevel", "dataType": "Double", "unit": "L" },
+            { "nodeId": "ns=4;s=|var|CODESYS Control Win V3 x64.Application.GVL.Pumpe", "metricName": "pumpActive", "dataType": "Boolean", "unit": "-" },
+            { "nodeId": "ns=4;s=|var|CODESYS Control Win V3 x64.Application.GVL.Ventil", "metricName": "valveActive", "dataType": "Boolean", "unit": "-" },
+            { "nodeId": "ns=4;s=|var|CODESYS Control Win V3 x64.Application.GVL.Verbrauch", "metricName": "waterConsumption", "dataType": "Double", "unit": "L" },
+            { "nodeId": "ns=4;s=|var|CODESYS Control Win V3 x64.Application.GVL.Regen", "metricName": "rainSimActive", "dataType": "Boolean", "unit": "-" }
+          ]
+        }
+      ]
+    }
+  }
+}
