@@ -7,7 +7,9 @@
 #include <vector>
 
 #include "ESP32Connector.h"
-#include "Gatewayapplication.h" 
+#include "OpcUaConnector.h"
+#include "Gatewayapplication.h"
+#include "ConfigLoader.h"
 
 namespace 
 {
@@ -16,7 +18,6 @@ namespace
     void handleSignal(int){
         running = false;
     }
-
 }
 
 int main(){
@@ -26,44 +27,63 @@ int main(){
    std::signal(SIGINT, handleSignal);
    std::signal(SIGTERM, handleSignal);
 
-   ESP32ConnectorConfig esp32Config;
-   esp32Config.deviceId = "esp32-connector";
-   esp32Config.brokerAddress = "tcp://localhost:1883"; //"tcp://broker.hivemq.com:1883";
-   esp32Config.topicFilter = "raw/+";
-
+   nlohmann::json root;
+   try
+   {
+       root = config::loadFile("config/config.json");
+   }
+   catch (const std::exception& e)
+   {
+       std::cerr << "Configuration error: " << e.what() << std::endl;
+       return 1;
+   }
 
    std::vector<std::unique_ptr<IConnector>> connectors;
-   connectors.push_back(std::make_unique<ESP32Connector>(esp32Config));
 
+   try
+   {
+       connectors.push_back(std::make_unique<ESP32Connector>(config::parseEsp32Config(root)));
+       connectors.push_back(std::make_unique<OpcUaConnector>(config::parseOpcUaConfig(root)));
+   }
+   catch (const std::exception& e)
+   {
+       std::cerr << "Connector configuration error: " << e.what() << std::endl;
+       return 1;
+   }
 
-   GatewayApplicationConfig config;
-   config.encoderConfig.namespaceId = "spBv1.0";
-   config.encoderConfig.groupId = "SFM";
-   config.encoderConfig.edgeNodeId = "IndustrialEdgeGateway";
-   config.mqttConfig.brokerAddress = "tcp://localhost:1883";   //"tcp://broker.hivemq.com:1883";
-   config.mqttConfig.clientId = "industrial-edge-gateway";
+   GatewayApplicationConfig gatewayConfig;
+   try
+   {
+       gatewayConfig = config::parseGatewayConfig(root);
+   }
+   catch (const std::exception& e)
+   {
+       std::cerr << "Gateway configuration error: " << e.what() << std::endl;
+       return 1;
+   }
 
-
-   Gatewayapplication app(config, std::move(connectors));
+   Gatewayapplication app(gatewayConfig, std::move(connectors));
 
    if(!app.initialize()){
-    
     std::cerr << "GatewayApplication initialization failed" << std::endl;
     return 1;
-
    }
 
    std::cout << "Gateway running. Press Ctrl+C to exit." << std::endl;
 
    while(running){
+    try{
+        app.pollOnce();
+    }
+    catch (const std::exception& e){
+        std::cerr << "pollOnce() failed: " << e.what() << std::endl;
+    }
 
-    app.pollOnce();
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
-
    }
 
    std::cout << "Shutting down..." << std::endl;
    app.shutdown();
 
     return 0;
-} 
+}
