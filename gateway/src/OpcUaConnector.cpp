@@ -44,61 +44,81 @@ OpcUaConnector::OpcUaConnector(OpcUaConnectorConfig config) : config_(std::move(
 }
 
 
+bool OpcUaConnector::connectSource(Source& source)
+{
+
+    try{
+
+        source.certificate = loadBinaryFile(source.config.certificatePath);
+        source.privateKey = loadBinaryFile((source.config.privateKeyPath));
+
+        opcua::ClientConfig clientConfig(source.certificate, source.privateKey, {});
+        clientConfig.setSecurityMode(opcua::MessageSecurityMode::SignAndEncrypt);
+
+        auto* rawConfig = clientConfig.handle();
+
+        UA_String_clear(&rawConfig->clientDescription.applicationUri);
+
+        rawConfig->clientDescription.applicationUri = UA_STRING_ALLOC("urn:industrial-edge-gateway:opcua-probe");
+
+        clientConfig.setUserIdentityToken(opcua::UserNameIdentityToken{source.config.username, source.config.password});
+
+        source.client = std::make_unique<opcua::Client>(std::move(clientConfig));
+        source.client->connect(source.config.endpoint);
+
+        bool sessionReady = false;
+
+        for (int i = 0; i < 30 && !sessionReady; ++i){
+
+            source.client->runIterate(10);
+            sessionReady = source.client->isConnected();
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+
+        if(!sessionReady){
+            throw std::runtime_error("OPC UA session was not established within the expected time");
+        }
+
+        source.connected = true;
+
+        std::cout << "[OpcUaConnector] Session ready for " << source.config.deviceId << std::endl;
+
+        return true;
+    }
+    catch(const std::exception& e){
+        std::cerr << "[OpcUaConnector] Connection failed for " << source.config.deviceId << ": " << e.what() << std::endl;
+        source.connected = false;
+
+        // Reset the client so the next connection attempt starts from a clean state.
+        source.client.reset();
+
+        return false;
+    }
+}
+
+
+
 bool OpcUaConnector::initialize()
 {
     sources_.clear();
 
     for(const auto& srcConfig : config_.sources){
 
-        try{
+        Source source;
+        source.config = srcConfig;
 
-            Source source;
-            source.config = srcConfig;
+        // A connection failure is not fatal. The source remains registered
+        // with connected set to false so collectData() can retry later.
+        connectSource(source);
 
-            source.certificate = loadBinaryFile(srcConfig.certificatePath);
-            source.privateKey  = loadBinaryFile(srcConfig.privateKeyPath);
-
-            opcua::ClientConfig clientConfig(source.certificate, source.privateKey, {});
-
-            clientConfig.setSecurityMode(opcua::MessageSecurityMode::SignAndEncrypt);
-
-            auto* rawConfig = clientConfig.handle();
-
-            UA_String_clear(&rawConfig->clientDescription.applicationUri);
-
-            rawConfig->clientDescription.applicationUri = UA_STRING_ALLOC ("urn:industrial-edge-gateway:opcua-probe");
-
-            clientConfig.setUserIdentityToken(opcua::UserNameIdentityToken(srcConfig.username, srcConfig.password));
-
-            source.client = std::make_unique<opcua::Client>(std::move(clientConfig));
-
-            source.client->connect(srcConfig.endpoint);
-
-            // Allow the OPC UA client to process connection and session events.
-            for(int i = 0 ; i < 30; i++){
-
-                source.client->runIterate(10);
-
-                std::this_thread::sleep_for(std::chrono::milliseconds(20));
-
-            }
-
-            source.connected = true;
-            sources_.push_back(std::move(source));
-
-            std::cout << "[OpcUaConnector] Session ready for " << srcConfig.deviceId << "\n" << std::flush;
-        }
-        catch(const std::exception& e)
-        {
-            std::cerr << "[OpcUaConnector] Connection failed for " << srcConfig.deviceId << ": " << e.what() << "\n" << std::flush;
-        }
+        sources_.push_back(std::move(source));
     }
 
-    if(!sources_.empty()){
-        return sources_[0].connected;
-    }
 
-    return false;
+    // The connector is considered initialized once all configured sources
+    // have been registered, regardless of their current connection state.
+    // Unavailable sources will be retried from collectData().
+    return true;
 }
 
 
@@ -167,12 +187,8 @@ std::vector<DeviceData> OpcUaConnector::collectData()
 
     for (auto& source : sources_){
 
-        if(!source.client){
-            continue;
-        }
-
         // Check the connection state and attempt reconnection if necessary.
-        if (!source.connected || !source.client->isConnected()){
+        if (!source.connected || !source.client || !source.client->isConnected()){
 
             auto now = std::chrono::steady_clock::now();
 
@@ -182,56 +198,41 @@ std::vector<DeviceData> OpcUaConnector::collectData()
 
             source.lastReconnectAttempt = now;
 
-            try{
-
-                source.client->connect(source.config.endpoint);
-                source.connected = true;
-
-                std::cout << "[OpcUaConnector] Reconnection successful for " << source.config.deviceId << "\n" << std::flush;
-            }
-            catch (const std::exception& e)
-            {
-                std::cerr << "[OpcUaConnector] Reconnection failed for " << source.config.deviceId << ": " << e.what() << "\n" << std::flush;
+            if(!connectSource(source)){
                 continue;
             }
+           
         }
 
         try{
-            // Process pending OPC UA communication and client events.
             source.client->runIterate(10);
         }
-        catch (const std::exception& e)
+        catch(const std::exception& e)
         {
-            std::cerr << "[OpcUaConnector] runIterate failed for " << source.config.deviceId << ": " << e.what() << "\n" << std::flush;
+            std::cerr << "[OpcUaConnector] runIterate failled for " << source.config.deviceId << " : " << e.what() << std::endl;
             source.connected = false;
             continue;
         }
 
         DeviceData data;
-
         data.deviceId = source.config.deviceId;
         data.timestamp = nowMillis();
 
         for (const auto& metricConfig : source.config.metrics){
 
             try{
-
                 source.client->runIterate(5);
-
                 data.metrics.push_back(readMetric(source, metricConfig));
-
             }
             catch(const std::exception& e)
             {
-                std::cerr << "[Metric Read Error] " << metricConfig.metricName << " (" << metricConfig.nodeId << "): " << e.what() << "\n" << std::flush;
+                std::cerr << "[READ ERROR] " << metricConfig.metricName << " (" << metricConfig.nodeId << ") : " << e.what() << std::endl;
             }
         }
 
         if(!data.metrics.empty()){
             result.push_back(std::move(data));
         }
-
-
     }
 
     return result;

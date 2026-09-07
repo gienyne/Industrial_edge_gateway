@@ -6,7 +6,8 @@
 /**
  * @brief Returns the current system time in milliseconds since the Unix epoch.
  * 
- * @return Current timestamp in milliseconds.
+ * Used by connectors as the Sparkplug timestamp when the data source itself
+ * cannot provide a reliable epoch-based timestamp...
  */
 inline unsigned long long nowMillis()
 {
