@@ -1,4 +1,5 @@
 #include "ESP32Connector.h"
+#include "TimeUtils.h"
 #include <nlohmann/json.hpp>
 #include <iostream>
 
@@ -100,7 +101,7 @@ std::vector<DeviceData> ESP32Connector::collectData()
              */
             std::cerr << "ESP32Connector: invalid JSON from device '" << deviceId << "': " << exc.what() << std::endl;
 
-            DeviceData transportLivenessOnly{deviceId, {}, 0ULL};
+            DeviceData transportLivenessOnly{deviceId, {}, nowMillis()};
             result.push_back(transportLivenessOnly);
         }
         
@@ -120,7 +121,19 @@ DeviceData ESP32Connector::parsePayload(const std::string& deviceId, const std::
     // how a malformed message should affect the Gateway.
     json doc = json::parse(payload);
 
-    data.timestamp = doc.value("timestamp", 0ULL);
+
+    // Keep the ESP32 uptime as a diagnostic metric.
+    // A sudden decrease in this value indicates that the device likely rebooted.
+    // millis() represents elapsed time since the ESP32 booted.
+    unsigned long long uptimeMillis = doc.value("timestamp", 0ULL);
+    data.metrics.push_back(Metric{
+        "uptimeMs", MetricDataType::Integer, static_cast<int>(uptimeMillis), "ms", nowMillis()
+    });
+
+
+    // The ESP32 timestamp represents time since boot rather than Unix epoch time.
+    // The Gateway therefore assigns its own current wall-clock timestamp to DeviceData.
+    data.timestamp = nowMillis();
 
     /**
      * A syntactically valid JSON payload may still have an unexpected structure.
@@ -137,13 +150,13 @@ DeviceData ESP32Connector::parsePayload(const std::string& deviceId, const std::
             data.metrics.push_back(Metric{
                 "temperature", MetricDataType::Double,
                 reading.value("temperature", 0.0), "C",
-                reading.value("timestamp", 0ULL)
+                nowMillis()
             });
 
             data.metrics.push_back(Metric{
                 "humidity", MetricDataType::Double,
                 reading.value("humidity", 0.0), "%",
-                reading.value("timestamp", 0ULL)
+                nowMillis()
             });
         }
 
@@ -151,7 +164,7 @@ DeviceData ESP32Connector::parsePayload(const std::string& deviceId, const std::
             data.metrics.push_back(Metric{
                 "shockDetected", MetricDataType::Boolean,
                 reading.value("detected", false), "",
-                reading.value("timestamp", 0ULL)
+                nowMillis()
             });
         }
 
@@ -160,7 +173,7 @@ DeviceData ESP32Connector::parsePayload(const std::string& deviceId, const std::
             data.metrics.push_back(Metric{
                 "lightIntensity", MetricDataType::Integer,
                 reading.value("intensity", 0), "",
-                reading.value("timestamp", 0ULL)
+                nowMillis()
             });
         }
 
@@ -169,7 +182,7 @@ DeviceData ESP32Connector::parsePayload(const std::string& deviceId, const std::
             data.metrics.push_back({
                 "buttonPressed", MetricDataType::Boolean,
                 reading.value("pressed", false), "",
-                reading.value("timestamp", 0ULL)
+                nowMillis()
             });
         }
     }
