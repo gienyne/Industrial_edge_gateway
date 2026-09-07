@@ -92,9 +92,8 @@ bool Gatewayapplication::initialize()
 
         if(!connector->initialize()){
 
-            std::cerr << "GatewayApplication: connector '" << connector->name() << "' initialization failed" << std::endl;
-            return false;
-
+            std::cerr << "GatewayApplication: connector '" << connector->name() << "' initialization failed; continuing Gateway startup"  << std::endl;
+            
         }
     }
 

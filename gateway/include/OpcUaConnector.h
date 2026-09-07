@@ -110,6 +110,10 @@ class OpcUaConnector : public IConnector {
          * @return The collected metric.
          */
         Metric readMetric(Source& source, const OpcUaMetricConfig& metricConfig);
+
+
+        bool connectSource(Source& source);
+        
 };
 
 #endif
