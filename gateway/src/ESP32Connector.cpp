@@ -5,11 +5,54 @@
 
 using json = nlohmann::json;
 
+namespace
+{
+    constexpr auto ReconnectCooldown = std::chrono::seconds(5);
+}
+
+
 ESP32Connector::ESP32Connector(const ESP32ConnectorConfig& config) : config_(config),
 mqttClient_(config.brokerAddress, config.deviceId)
 {
 
 } 
+
+
+bool ESP32Connector::connectMqtt()
+{
+
+    try{
+
+        mqtt::connect_options connOpts;
+        connOpts.set_clean_session(true);
+
+        if(!mqttClient_.is_connected()){
+            mqttClient_.connect(connOpts)->wait();
+            std::cout << "[ESP32Connector] Connected to MQTT broker" << std::endl;
+        }
+
+        /**
+         * Subscribe after every successful connection attempt.
+         * 
+         * This is also necessary after reconnecting because the client
+         * uses a clean MQTT session.
+         */
+        mqttClient_.subscribe(config_.topicFilter, 0)->wait();
+
+        connected_ = true;
+
+        std::cout << "[ESP32Connector] Subscribed to " << config_.topicFilter << std::endl;
+
+        return true;
+    }
+    catch(const mqtt::exception& exc)
+    {
+        std::cerr << "[ESP32Connector] Connection or subscription failed: " << exc.what() << std::endl;
+        connected_ = false;
+        return false;
+    }
+
+}
 
 bool ESP32Connector::initialize()
 {
@@ -17,19 +60,15 @@ bool ESP32Connector::initialize()
     // Paho MQTT calls message_arrived() from its internal MQTT thread.
     mqttClient_.set_callback(*this);
 
-    mqtt::connect_options connOpts;
-    connOpts.set_clean_session(true);
+    /**
+     * An initial connection failure is not fatal for the Gateway.
+     * 
+     * The broker may simply be unavailable during Gateway startup.
+     * collectData() will retry the connection automatically.
+     */
+    connectMqtt();
 
-    try{
-        mqttClient_.connect(connOpts)->wait();
-        mqttClient_.subscribe(config_.topicFilter, 0)->wait();
-        return true;
-    }
-    catch (const mqtt::exception& exc)
-    {
-        std::cerr <<"ESP32Connector: MQTT error" << exc.what() << std::endl;
-        return false;
-    }
+    return true;
 }
 
 std::string ESP32Connector::extractDeviceId(const std::string& topic) const{
@@ -59,10 +98,28 @@ void ESP32Connector::message_arrived(mqtt::const_message_ptr msg){
 
 void ESP32Connector::connection_lost(const std::string& lst){
     std::cerr << "ESP32Connector: connection lost: " << lst << std::endl;
+    connected_ = false;
 }
 
 std::vector<DeviceData> ESP32Connector::collectData()
 {
+
+    // Attempt reconnection when the connection has been lost or
+    // was never established successfully.
+    if(!connected_ || !mqttClient_.is_connected()){
+
+        const auto now = std::chrono::steady_clock::now();
+
+        if(now - lastReconnectAttempt_ < ReconnectCooldown){
+            return{};
+        }
+
+        lastReconnectAttempt_ = now;
+
+        if(!connectMqtt()){
+            return {};
+        }
+    }
     std::map<std::string, std::string> payloadsToProcess;
 
     {

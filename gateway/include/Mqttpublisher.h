@@ -3,6 +3,7 @@
 
 #include <atomic>
 #include <string>
+#include <chrono>
 #include <mqtt/async_client.h>
 #include "SparkplugEncoder.h"
 #include "SparkplugPayload.h"
@@ -108,6 +109,8 @@ class Mqttpublisher : public virtual mqtt::callback
          */
         void connection_lost(const std::string& lst) override;
 
+        bool connectSession();
+
     private:
 
         // MQTT broker and client configuration.
@@ -123,6 +126,10 @@ class Mqttpublisher : public virtual mqtt::callback
 
         // Indicates whether a Node Rebirth request is pending.
         std::atomic<bool> rebirthRequested_ {false};
+
+        // Minimum delay between two consecutive reconnection attempts.
+        static constexpr auto reconnectCooldown = std::chrono::seconds(5);
+        std::chrono::steady_clock::time_point lastReconnectAttempt_{};
 };
 
 
