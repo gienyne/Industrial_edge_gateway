@@ -33,7 +33,18 @@ class BdSeqManager
          * 
          * @return The bdSeq value assigned to the current session.
          */
-        std::uint64_t nextSessionBdSeq();
+        std::uint64_t nextSessionBdSeq() const;
+
+
+        /**
+         * @brief Persists a bdSeq value as the last successfully used session
+         * 
+         * will be called only after the bdSeq value returned by
+         * nextSessionBdSeq() has actually been used for a successful MQTT CONNECT.
+         * 
+         * @param bdSeq The bdSeq value to persist.
+         */
+        void commitSessionBdSeq(std::uint64_t bdSeq);
 
     
     private:

@@ -1,6 +1,9 @@
 #ifndef ESP32CONNECTOR_H
 #define ESP32CONNECTOR_H
 
+#include <atomic>
+#include <chrono>
+#include <map>
 #include <string>
 #include <mutex>
 #include <mqtt/async_client.h>
@@ -27,9 +30,12 @@ class ESP32Connector : public IConnector, public virtual mqtt::callback
         /**
          * @brief Create an ESP32 connector with the given configuration.
          */
-        ESP32Connector(const ESP32ConnectorConfig& config);
+        explicit ESP32Connector(const ESP32ConnectorConfig& config);
+
         bool initialize() override;
+
         std::vector<DeviceData> collectData() override;
+
         const char* name() const override;
 
         /**
@@ -53,6 +59,23 @@ class ESP32Connector : public IConnector, public virtual mqtt::callback
         // Stores received payloads until they are processed.
         std::map<std::string, std::string> pendingPayloads_;
         
+        // Connection state shared between Paho's callback thread and
+        // the Gateway's main thread.
+        std::atomic<bool> connected_{false};
+
+        // Timestamp of the most recent reconnection attempt.
+        std::chrono::steady_clock::time_point lastReconnectAttempt_{};
+
+        /**
+         * @brief Connects to the MQTT broker and subscribes to the configured topic.
+         * 
+         * This method is used both for the initial connection and for
+         * automatic reconnection attempts.
+         * 
+         * @return true if the connector is connected and subscribed successfully.
+         */
+        bool connectMqtt();
+
 
         /**
          * @brief Convert an MQTT JSON payload into DeviceData.
