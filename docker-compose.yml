@@ -1,0 +1,7 @@
+services:
+  gateway:
+    image: gateway-linux
+    command: /src/build/gateway
+    volumes:
+      - ./gateway/config_docker/config.docker.json:/src/config/config.json
+      - ./gateway/certs:/src/certs

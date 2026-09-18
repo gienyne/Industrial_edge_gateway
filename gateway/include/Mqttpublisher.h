@@ -6,7 +6,7 @@
 #include <chrono>
 #include <mqtt/async_client.h>
 #include "SparkplugEncoder.h"
-#include "SparkplugPayload.h"
+#include "Sparkplugpayload.h"
 #include "BdSeqManager.h"
 
 
