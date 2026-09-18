@@ -3,7 +3,7 @@
 
 #include <cstdint>
 #include <string>
-#include "Isparkplugencoder.h"
+#include "IsparkplugEncoder.h"
 #include "../build/proto/sparkplug_b.pb.h"
 
 /**
