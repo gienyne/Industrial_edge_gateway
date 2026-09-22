@@ -287,7 +287,7 @@ MQTT session, and therefore its Last Will, has not changed. The NBIRTH restarts
 | A known device reports a new metric | `hasNewMetric(previous, incoming)`               |
 | A Host Application requests it    | NCMD `Node Control/Rebirth = true`                 |
 | A device comes back after a timeout | it was erased at DDEATH, so it is new again      |
-````
+```
 
 A successful reconnection of the MQTT session also requests a rebirth:
 `Mqttpublisher` raises the same flag as for an NCMD. Because this is a *new*
