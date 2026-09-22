@@ -70,7 +70,7 @@ Gateway
 the configured sensors through this interface and does not depend on their
 concrete implementations.
 
-What happens after `SensorConnector` — including the raw transport to the
+What happens after `SensorConnector` including the raw transport to the
 gateway — is outside the responsibility of this layer.
 
 ---
