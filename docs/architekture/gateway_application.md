@@ -243,23 +243,23 @@ without a broker the gateway has nowhere to publish, so `initialize()` returns
                              │
                              └──────► end
                              
-                         no │
-                            ▼
+                         no  │
+                             ▼
              Collect data from all connectors
-                            │
-                            ▼
+                             │
+                             ▼
                   Refresh lastSeenAt_
-                            │
-                            ▼
+                             │
+                             ▼
                 New device / new metric?
-                       │             │
+                       │              │
                      yes             no
                        │              │
                        ▼              ▼
                  Update state    Filter changed
                        │             metrics
                        ▼              │
-                 Publish births      ▼
+                 Publish births       ▼
                        │           DDATA
                        │              │
                        └──────┐───────┘
