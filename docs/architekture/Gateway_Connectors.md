@@ -304,9 +304,6 @@ It must be different from:
 Otherwise, the broker can disconnect the older client using the same client
 ID.
 
-The current name is therefore somewhat misleading; `clientId` would be a
-more accurate name.
-
 The raw MQTT/JSON format is documented in `data_models.md`.
 
 ---
