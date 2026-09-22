@@ -142,7 +142,7 @@ metric.
 
 ### `name()`
 
-Returns a human-readable name used for logging and diagnostics.
+Returns the connector's name, used in logs and diagnostics
 
 ---
 
