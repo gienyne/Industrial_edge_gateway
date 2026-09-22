@@ -47,8 +47,8 @@ Gateway
 ## Position in the Source Device
 
 ```text
-                      Sensor Layer
-                 ============
+           Sensor Layer
+           ============
 
         ┌───────────────┐
         │    ISensor    │
