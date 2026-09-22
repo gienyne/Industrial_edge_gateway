@@ -2,301 +2,463 @@
 
 ## Purpose
 
-The `SparkplugEncoder` converts the gateway's internal data model into
-Sparkplug B compliant messages.
+`SparkplugEncoder` converts the gateway's internal data model into Sparkplug B
+messages.
 
-It is the only component that knows the Sparkplug B protocol.
+It is the only component that knows the Sparkplug B message format, including
+topics, Protobuf payloads, metric declarations and sequence numbers.
 
-The encoder is completely independent from sensors, source devices,
-MQTT transport and hardware.
+The encoder is independent of sensors, source protocols and MQTT transport.
 
 ---
 
 ## Responsibilities
 
-The `SparkplugEncoder`
+The encoder
 
-- builds Sparkplug B topics
-- encodes Protobuf payloads
-- maintains Sparkplug sequence numbers
-- produces binary payloads ready for transmission
+* builds Sparkplug topics;
+* creates and serializes Sparkplug B Protobuf payloads;
+* maintains the message sequence number (`seq`);
+* stores the MQTT session's birth/death sequence number (`bdSeq`);
+* defines the QoS and retain flag for each message type;
+* builds the MQTT Last Will payload (`NDEATH`).
 
 The encoder never
 
-- communicates with sensors
-- publishes MQTT messages
-- stores measurements
-- communicates with databases
+* reads sensors or communicates with source systems;
+* connects to or publishes messages through the MQTT broker;
+* decides **when** a message is sent — this is handled by
+  `Gatewayapplication`;
+* decodes incoming commands.
 
 ---
 
 ## Position in the Architecture
 
 ```text
-                    Industrial Edge Gateway
-                             │
-                             ▼
-
-                         DeviceData
-                             │
-                             ▼
-                    SparkplugEncoder
-                             │
-                             ▼
-                    SparkplugPayload
-                             │
-                             ▼
-                       MQTTPublisher
-                             │
-                             ▼
-                        MQTT Broker
+                    Gateway
+                       │
+                       │ DeviceData
+                       ▼
+              ┌──────────────────┐
+              │ SparkplugEncoder │
+              │                  │
+              │ topics           │
+              │ Protobuf         │
+              │ seq / bdSeq      │
+              │ QoS / retain     │
+              └────────┬─────────┘
+                       │
+                       │ SparkplugPayload
+                       ▼
+                Mqttpublisher
+                       │
+                       │ MQTT
+                       ▼
+                  MQTT Broker
 ```
 
-The encoder belongs exclusively to the central Industrial Edge Gateway.
+The encoder belongs entirely to the gateway.
 
-Source devices such as the ESP32 do not perform Sparkplug encoding.
+Source devices never create Sparkplug messages. They only provide source data
+that is converted into `DeviceData` by the connectors.
 
 ---
 
 ## Public Interface
 
+The interface separates **Node-level** messages from **Device-level**
+messages.
+
+A Node message describes the Edge Node itself, not a device. Using one generic
+function such as `encode(deviceData, messageType)` would therefore require a
+dummy `DeviceData` for `NBIRTH` or `NDEATH`.
+
+The interface keeps this distinction explicit:
+
 ```cpp
-class ISparkplugEncoder
+class IsparkplugEncoder
 {
 public:
+    virtual ~IsparkplugEncoder() = default;
 
-    virtual ~ISparkplugEncoder() = default;
+    // Node level
+    virtual SparkplugPayload encodeNodeBirth() = 0;
+    virtual SparkplugPayload encodeNodeDeath() = 0;
 
-    virtual SparkplugPayload encode(const DeviceData& deviceData,MessageType messageType) = 0;
+    // Device level
+    virtual SparkplugPayload encodeDeviceBirth(const DeviceData& deviceData) = 0;
+    virtual SparkplugPayload encodeDeviceData(const DeviceData& deviceData) = 0;
+    virtual SparkplugPayload encodeDeviceDeath(const std::string& deviceId) = 0;
+
+    // Session helpers
+    virtual std::string nodeCommandTopic() const = 0;
+    virtual SparkplugPayload buildWillPayload() = 0;
 };
 ```
 
-The interface separates Sparkplug-specific encoding from the gateway
-application and the MQTT transport.
+`SparkplugEncoder` implements this interface and additionally provides
+`setBdSeq(std::uint64_t)`.
 
-It also allows the encoding strategy to be replaced in the future without
-modifying the surrounding gateway pipeline.
+`setBdSeq()` is called when a new MQTT session starts. It stores the session's
+`bdSeq` and resets the message sequence counter `seq`.
 
----
-
-## Supported Message Types
+### Configuration
 
 ```cpp
-enum class MessageType
+struct SparkplugEncodeConfig
 {
-    NBIRTH,
-    DBIRTH,
-    DDATA,
-    NDEATH,
-    DDEATH
+    std::string namespaceId;
+    std::string groupId;
+    std::string edgeNodeId;
 };
 ```
 
-Command messages such as `NCMD` and `DCMD` are outside the responsibility
-of the encoder.
+---
 
-They will be handled by a dedicated Sparkplug command/decoder component
-if command support is required in the future.
+## Topics
+
+Sparkplug topics follow this structure:
+
+```text
+spBv1.0/<groupId>/<verb>/<edgeNodeId>[/<deviceId>]
+```
+
+`nodeCommandTopic()` returns the `NCMD` topic used by the publisher to receive
+Node commands.
 
 ---
 
-## Internal Responsibilities
+## Messages
 
-Internally, the encoder performs several independent steps.
+| Message  | Level  |      `seq` | Content                                       |
+| -------- | ------ | ---------: | --------------------------------------------- |
+| `NBIRTH` | Node   |        `0` | `bdSeq` and `Node Control/Rebirth = false`    |
+| `NDEATH` | Node   |       none | `bdSeq`                                       |
+| `DBIRTH` | Device | next value | All metrics of the device, including datatype |
+| `DDATA`  | Device | next value | Changed metrics only, without datatype        |
+| `DDEATH` | Device | next value | No metrics                                    |
+
+### QoS and Retain
+
+QoS and retain are defined by the encoder rather than by the publisher.
+
+The current behavior is:
+
+| Message              | QoS | Retain |
+| -------------------- | --: | ------ |
+| `NBIRTH`             |   0 | false  |
+| `DBIRTH`             |   0 | false  |
+| `DDATA`              |   0 | false  |
+| `DDEATH`             |   0 | false  |
+| `NDEATH` / Last Will |   1 | false  |
+
+The publisher transports these values unchanged.
+
+Birth, data and `DDEATH` payloads contain the encoding time as the payload
+timestamp.
+
+Each metric keeps its own collection timestamp from `Metric.timestamp`.
+
+---
+
+# Sequence Numbers
+
+Sparkplug uses two different sequence numbers with different purposes:
 
 ```text
-DeviceData
-    │
-    ▼
-Build Topic
-    │
-    ▼
-Create Protobuf Payload
-    │
-    ▼
-Append Metrics
-    │
-    ▼
-Update Sequence Numbers
-    │
-    ▼
+                    Sparkplug session
+                          │
+             ┌────────────┴────────────┐
+             │                         │
+             ▼                         ▼
+          bdSeq                       seq
+       MQTT session ID          message sequence
+             │                         │
+             │                         ├── NBIRTH = 0
+             │                         ├── DBIRTH = 1
+             │                         ├── DBIRTH = 2
+             │                         ├── DDATA  = 3
+             │                         └── ...
+             │
+             └── same value in
+                 NBIRTH + NDEATH
+```
+
+## `seq`
+
+`seq` is one counter shared by Node and Device messages.
+
+It is a `uint8_t`, so it naturally wraps from `255` back to `0`.
+
+Every `NBIRTH` resets the counter to `0`, including an `NBIRTH` published for a
+logical rebirth inside the same MQTT session.
+
+The following messages consume the next values:
+
+```text
+NBIRTH  → 0
+DBIRTH  → 1
+DBIRTH  → 2
+DDATA   → 3
+DDATA   → 4
+DDEATH  → 5
+...
+```
+
+`NDEATH` and `NCMD` do not carry `seq`.
+
+A Host Application can use the sequence to detect missing Sparkplug messages.
+
+The Sparkplug 3.0.0 specification is not completely consistent on the initial
+`NBIRTH` value:
+
+* the operational chapter allows any starting value from `0` to `255`;
+* the conformance chapter requires `0`.
+
+Using `0` satisfies both interpretations.
+
+---
+
+## `bdSeq`
+
+`bdSeq` identifies the MQTT session.
+
+It is set once at the beginning of a session through `setBdSeq()` and remains
+unchanged for that entire session.
+
+The same `bdSeq` is used in:
+
+```text
+             MQTT session
+                  │
+        ┌─────────┴─────────┐
+        ▼                   ▼
+     NBIRTH               NDEATH
+        │                   │
+        └────── same ───────┘
+              bdSeq
+```
+
+This allows a Host Application to associate an `NDEATH` with the `NBIRTH`
+belonging to the same MQTT session.
+
+### Logical Rebirth
+
+A logical rebirth, for example after:
+
+* a new device;
+* a new metric;
+* an `NCMD` Rebirth request;
+
+publishes a new `NBIRTH` but keeps the same `bdSeq`.
+
+The MQTT connection did not change, so the Last Will already registered with
+the broker still belongs to the same session.
+
+Only a **new MQTT connection** produces a new `bdSeq`.
+
+---
+
+## `bdSeq` Persistence
+
+`SparkplugEncoder` stores the current `bdSeq`, but does not choose or persist
+it.
+
+That responsibility belongs to `BdSeqManager`.
+
+The value is stored in a small file, `bdseq.dat` by default:
+
+```text
+nextSessionBdSeq()
+       │
+       │ read file
+       │ increment
+       │ 255 → 0
+       │ missing / unreadable → 0
+       ▼
+ encoder.setBdSeq()
+       │
+       │ use value for session
+       ▼
+ MQTT CONNECT succeeds
+       │
+       ▼
+commitSessionBdSeq()
+       │
+       ▼
+ bdseq.dat updated
+```
+
+The value is written back **only after the MQTT `CONNECT` succeeds**.
+
+Therefore, a failed connection attempt does not consume a `bdSeq` value.
+
+The file is generated by the gateway and is not version-controlled.
+
+---
+
+# Protobuf Encoding
+
+The Sparkplug B schema is defined in:
+
+```text
+proto/sparkplug_b.proto
+```
+
+It is compiled during the build with `protobuf_generate`.
+
+The generated Protobuf class is:
+
+```cpp
+org::eclipse::tahu::protobuf::Payload
+```
+
+The encoder maps the gateway's internal data model onto this Protobuf structure.
+
+```text
+Internal Metric
+      │
+      │ appendMetric()
+      ▼
+Payload::Metric
+(Protobuf)
+      │
+      ▼
+Payload
+      │
+      │ ByteSizeLong()
+      │ resize()
+      │ SerializeToArray()
+      ▼
 SparkplugPayload
 ```
 
-The public interface exposes a single `encode()` function.
+There are therefore two different types called `Metric`:
 
-The implementation may delegate individual steps to private helper
-methods.
+* the gateway's internal `Metric`;
+* `Payload::Metric` from the Sparkplug Protobuf definition.
 
----
+`appendMetric()` performs the conversion between them.
 
-## Sequence Management
+The `includeDatatype` parameter controls whether the Protobuf metric contains
+its datatype.
 
-The encoder maintains the Sparkplug sequence counters.
+### Datatype Mapping
 
-```cpp
-uint8_t bdSeq_;
-uint8_t seq_;
-```
+| `MetricDataType` | Sparkplug datatype |
+| ---------------- | ------------------ |
+| `Boolean`        | Boolean            |
+| `Integer`        | Int32              |
+| `Double`         | Double             |
+| `String`         | String             |
 
-### bdSeq
+Serialization is not transmission.
 
-`bdSeq` represents the Birth/Death sequence of the Edge Node.
-
-- changes when a new Edge Node session starts
-- remains constant during normal operation
-- is used to associate Birth and Death messages with the same session
-
-### seq
-
-`seq` represents the message sequence number.
-
-- increments for each Sparkplug message
-- wraps from 255 back to 0
-- is reset when a new NBIRTH message starts a new session
+`SerializeToArray()` only creates the serialized bytes. Sending those bytes
+over MQTT is the responsibility of `Mqttpublisher`.
 
 ---
 
-## Protobuf Encoding
+# Produced Output
 
-Sparkplug B uses Protocol Buffers for its payload representation.
-
-The encoder does not implement the binary encoding manually.
-
-Instead, the Sparkplug B Protobuf schema is used together with an
-appropriate Protobuf implementation to serialize the payload.
-
-Conceptually:
-
-```text
-DeviceData
-    │
-    ▼
-SparkplugEncoder
-    │
-    ├── Build Sparkplug Topic
-    │
-    ├── Populate Protobuf Message
-    │
-    └── Serialize Protobuf Message
-            │
-            ▼
-       Binary Payload
-```
-
-The encoder is therefore responsible for mapping the gateway's
-`DeviceData` model to the Sparkplug B message structure, while the
-Protobuf library performs the binary serialization.
-
----
-
-## Produced Output
-
-The encoder produces a complete Sparkplug message ready for transport.
+The encoder returns a transport-ready `SparkplugPayload`:
 
 ```cpp
 struct SparkplugPayload
 {
-    MqttTopic topic;
-    BinaryPayload payload;
+    MqttTopic     topic;     // std::string
+    BinaryPayload payload;   // std::vector<uint8_t>, serialized Protobuf
+    int           qos;
+    bool          retain;
 };
 ```
 
-The `MQTTPublisher` does not interpret Sparkplug messages.
+The publisher does not interpret the Sparkplug content.
 
-It only publishes the topic and binary payload produced by the encoder.
-
----
-
-## MQTT Last Will
-
-The encoder is responsible for creating the Sparkplug-specific information
-required for an NDEATH message.
-
-The MQTT Publisher remains responsible for configuring the MQTT Last Will
-during connection establishment.
-
-This separation keeps Sparkplug-specific message knowledge inside the
-encoder while keeping the MQTT Publisher focused on transport operations.
-
----
-
-## Design Principles
-
-### Single Responsibility
-
-The encoder is responsible only for translating the internal gateway data
-model into Sparkplug B messages.
-
-### Protocol Encapsulation
-
-All Sparkplug-specific knowledge is isolated inside the encoder.
-
-### Transport Independence
-
-The encoder does not establish MQTT connections or publish messages.
-
-### Hardware Independence
-
-The encoder has no knowledge of sensors, PLCs, robots or other physical
-devices.
-
-### Internal Model Independence
-
-The encoder consumes the common `DeviceData` representation and therefore
-does not depend on any specific source protocol.
-
----
-
-## Future Extensions
-
-Future versions may support additional Sparkplug B features such as
-
-- Sparkplug Templates
-- Dataset Metrics
-- Property Sets
-- Metric Aliases
-- Compression
-- additional Sparkplug message types
-
-Command messages such as `NCMD` and `DCMD` may be implemented later by a
-dedicated Sparkplug command/decoder component.
-
-Alternative encoding or standardization strategies may also be introduced
-in the future without requiring changes to the gateway's data acquisition
-and internal data model layers.
-
----
-
-## Summary
-
-The `SparkplugEncoder` forms the standardization boundary of the
-Industrial Edge Gateway.
-
-It receives the protocol-independent `DeviceData` model and converts it
-into Sparkplug B topics and binary payloads.
+It simply transports:
 
 ```text
-Source Devices
-      │
-      ▼
-   Connectors
-      │
-      ▼
-  DeviceData
-      │
-      ▼
-SparkplugEncoder
-      │
-      ▼
 SparkplugPayload
-      │
-      ▼
- MQTTPublisher
-      │
-      ▼
- MQTT Broker
+       │
+       ├── topic
+       ├── payload
+       ├── qos
+       └── retain
+              │
+              ▼
+         Mqttpublisher
+              │
+              ▼
+          MQTT Broker
 ```
 
-Sparkplug B is therefore a gateway-level output protocol rather than a
-responsibility of the individual source devices.
+---
+
+# MQTT Last Will
+
+`buildWillPayload()` creates the `NDEATH` message used as the MQTT Last Will.
+
+The responsibilities are deliberately separated:
+
+```text
+SparkplugEncoder
+    │
+    │ creates NDEATH payload
+    ▼
+SparkplugPayload
+    │
+    │ publisher registers it
+    ▼
+Mqttpublisher
+    │
+    ▼
+MQTT CONNECT
+```
+
+The encoder knows **what the Last Will contains**.
+
+The publisher knows **how to register it with MQTT**.
+
+---
+
+# Not Supported
+
+The following features are intentionally outside the current scope:
+
+* Metric aliases;
+* Templates;
+* DataSets;
+* PropertySets;
+* `NDATA` for dynamic Node-level metrics;
+* `DCMD`;
+* decoding incoming commands.
+
+The Node Rebirth command is detected by `Mqttpublisher`, which owns the MQTT
+subscription.
+
+The encoder only provides the corresponding `nodeCommandTopic()`.
+
+---
+
+# Design Principles
+
+* **Single Responsibility:** the encoder handles Sparkplug message creation
+  and nothing else.
+* **Protocol encapsulation:** all Sparkplug-specific knowledge is kept here.
+* **Transport independence:** the encoder creates messages but does not send
+  them.
+* **Separate Node and Device operations:** the interface reflects the actual
+  Sparkplug message hierarchy.
+* **Protocol-free internal model:** `Metric` and `DeviceData` do not contain
+  Sparkplug-specific concepts.
+
+---
+
+# Future Extensions
+
+* Metric aliases to reduce payload size.
+* Templates, DataSets and PropertySets.
+* `NDATA` for Node-level metrics.
+* A dedicated command decoder if additional `NCMD` or `DCMD` commands are
+  required.
