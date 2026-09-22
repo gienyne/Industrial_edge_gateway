@@ -137,9 +137,6 @@ All four implementations share the same `ISensor` interface, allowing
 | `LightSensor`  | Raw analog light level   | ADC value `0–4095`; not calibrated to lux.                                                 |
 | `ButtonSensor` | Digital button state     | Uses the digital input state to report whether the button is pressed.                      |
 
-None of the four current implementations reports a failed hardware
-initialization; their `initialize()` methods currently return `true`.
-
 ---
 
 ## Design Principles
