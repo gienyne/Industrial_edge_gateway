@@ -280,13 +280,15 @@ A *logical* rebirth (new device, NCMD) reuses the current `bdSeq`, because the
 MQTT session, and therefore its Last Will, has not changed. The NBIRTH restarts
 `seq` at 0, exactly as for a new session.
 
-```
+```text
+
 | Trigger                           | Detection                                          |
 |-----------------------------------|----------------------------------------------------|
 | A new device appears              | its id is not in `birthedDevices_`                 |
 | A known device reports a new metric | `hasNewMetric(previous, incoming)`               |
 | A Host Application requests it    | NCMD `Node Control/Rebirth = true`                 |
 | A device comes back after a timeout | it was erased at DDEATH, so it is new again      |
+
 ```
 
 A successful reconnection of the MQTT session also requests a rebirth:
