@@ -2,84 +2,73 @@
 
 ## Purpose
 
-The Sensor Layer provides a hardware abstraction for physical sensors
-connected to a source device such as the ESP32.
+The Sensor Layer provides the hardware abstraction for physical sensors on the
+ESP32 source device. Each sensor is responsible only for communicating with its
+own hardware and producing a measurement.
 
-Each sensor is responsible only for communicating with its own hardware,
-acquiring measurements, validating the acquired data and producing a
-source-specific `SensorReading`.
+The Sensor Layer has no knowledge of the gateway, MQTT, Sparkplug or any other
+communication protocol.
 
-The Sensor Layer belongs to the source device and is independent from the
-Industrial Edge Gateway.
-
-The gateway does not access sensor hardware directly.
+It belongs entirely to the source device.
 
 ---
 
 ## Responsibilities
 
-Each sensor is responsible for:
+Each sensor
 
-- initializing its hardware;
-- acquiring measurements;
-- validating the acquired data;
-- returning a `SensorReading`;
-- exposing its sensor identity through the common `ISensor` interface.
+* initializes its own hardware;
+* acquires a measurement;
+* reports whether the measurement is valid;
+* fills a `SensorReading` with the result;
+* exposes its name through the common `ISensor` interface.
 
-Sensors do **not**:
+A sensor never
 
-- create `Metric` objects;
-- create `DeviceData`;
-- encode Sparkplug messages;
-- publish Sparkplug messages;
-- implement gateway logic;
-- communicate directly with the Industrial Edge Gateway.
+* creates a `Metric` or `DeviceData`;
+* encodes or publishes Sparkplug messages;
+* implements gateway logic;
+* communicates with the gateway or MQTT directly.
 
 ---
 
 ## Position in the Architecture
 
-The Sensor Layer is located entirely on the source device.
-
 ```text
                     ESP32 / SOURCE DEVICE
                     =====================
 
-       DHT11Sensor      ShockSensor      LightSensor
-            │                │                │
-            │                │                │
-            └────────────────┼────────────────┘
-                             │
-                             ▼
-                     SensorConnector
-                             │
-                             ▼
-                       Raw Transport
+    DHT11Sensor    ShockSensor   LightSensor   ButtonSensor
+          │             │             │             │
+          └─────────────┴──────┬──────┴─────────────┘
+                               │
+                               ▼
+                        SensorConnector
+                               │
+                               ▼
+                         raw/<deviceId>
 
                     =====================
-                         GATEWAY
+                            GATEWAY
 ```
 
-`ISensor` is an interface implemented by the concrete sensor classes.
-It is not a processing step in the data flow.
+`ISensor` is an interface, not a separate processing stage. `SensorConnector`
+uses it to interact with all sensors without depending on their concrete
+implementations.
 
 ```text
 DHT11Sensor ─────┐
-ShockSensor ─────┼──────► SensorConnector
-LightSensor ─────┘
+ShockSensor ─────┤
+LightSensor ─────┼──────► SensorConnector
+ButtonSensor ────┘
        ▲
        │ implements
-       │
      ISensor
 ```
 
-The `SensorConnector` accesses the concrete sensors through the `ISensor`
-interface and aggregates their readings.
-
-The resulting source data is then transferred to the Industrial Edge Gateway
-through a raw transport mechanism.
-
-The concrete transport protocol is intentionally not defined at this layer.
+The transport used after `SensorConnector`, currently MQTT/JSON on
+`raw/<deviceId>`, is outside the responsibility of this layer. Its message
+format is documented in `data_models.md`.
 
 ---
 
@@ -89,155 +78,139 @@ The concrete transport protocol is intentionally not defined at this layer.
 class ISensor
 {
 public:
+    virtual ~ISensor() = default;
 
     virtual bool initialize() = 0;
-
-    virtual SensorReading read() = 0;
-
+    virtual bool read(SensorReading& reading) = 0;
     virtual const char* name() const = 0;
-
-    virtual ~ISensor() = default;
 };
 ```
 
-The interface provides a common abstraction for all physical sensors.
+`read()` writes the measurement into the caller-provided `SensorReading` and
+returns whether the measurement is usable.
 
-A concrete sensor implements `ISensor` while keeping its hardware-specific
-communication details internal to the implementation.
+There is no separate validity flag in `SensorReading`. The return value of
+`read()` determines whether the reading is valid; invalid readings are not
+passed on by the caller.
+
+---
+
+## SensorReading
+
+`SensorReading` is the source-device representation used to pass measurements
+from the concrete sensors to `SensorConnector`.
+
+The `type` field identifies which member of the union is populated.
+
+```cpp
+enum class SensorType { DHT11, SHOCK, LIGHT, BUTTON };
+
+struct DHT11Reading  {
+    float temperature;
+    float humidity;
+    unsigned long timestamp;
+};
+
+struct ShockReading  {
+    bool detected;
+    unsigned long timestamp;
+};
+
+struct LightReading  {
+    int intensity;
+    unsigned long timestamp;
+};
+
+struct ButtonReading {
+    bool pressed;
+    unsigned long timestamp;
+};
+
+union SensorReadingData {
+    DHT11Reading dht11;
+    ShockReading shock;
+    LightReading light;
+    ButtonReading button;
+};
+
+struct SensorReading {
+    SensorType type;
+    SensorReadingData data;
+};
+```
+
+Each `timestamp` contains the value returned by `millis()`. It represents the
+time elapsed since the ESP32 booted, not an absolute date or Unix timestamp.
+
+The gateway does not use this value as the Sparkplug timestamp. The value is
+carried with the source reading because it is the timestamp available from the
+firmware. The gateway-side timestamping is described in `data_models.md`.
+
+These structures are specific to the ESP32 firmware and are not part of the
+gateway's internal data model. `ESP32Connector` converts the received sensor
+data into the gateway's `Metric` and `DeviceData` structures.
 
 ---
 
 ## Current Implementations
 
+The firmware is used on two ESP32 units with different sensor configurations.
+The active sensor set is selected at build time through `SensorArray` and
+`SENSOR_COUNT` in `main.cpp`.
+
+Both configurations use the same `ISensor` interface, allowing
+`SensorConnector` to handle the concrete sensor types uniformly.
+
 ### DHT11Sensor
 
-Measures:
+Reads temperature and humidity from the pin passed to its constructor
+(`DHT11_PIN`, GPIO4 by default) using the Adafruit DHT library.
 
-- Temperature
-- Humidity
-
-Notes:
-
-- The DHT11 communication protocol requires timing-sensitive bit transfers.
-- The `read()` operation may block for a few milliseconds.
+`read()` returns `false` if the library reports `NAN` for either measurement.
+Such readings are discarded by the caller.
 
 ### ShockSensor
 
-Measures:
+Uses a digital input with an internal pull-up resistor.
 
-- Shock detection
+`detected` is set to `true` when the input reads `LOW`.
 
-Acquisition method:
-
-- Digital polling
-
-Future extension:
-
-- Interrupt-based acquisition
+The sensor can occasionally report noisy transitions without a mechanical
+shock. No software debouncing is currently implemented.
 
 ### LightSensor
 
-Measures:
+Reads a raw ADC value in the range `0–4095` from an analog input.
 
-- Ambient light level
+The value is not calibrated to a physical unit such as lux.
 
-Current measurement:
+### ButtonSensor
 
-- Raw ADC value
+Uses a digital input with an internal pull-up resistor.
 
-Future extension:
+`pressed` is set to `true` when the input reads `LOW`.
 
-- Calibrated light intensity in lux
-
----
-
-## Sensor Readings
-
-Each sensor may define its own source-specific reading structure.
-
-Examples:
-
-```text
-DHT11Reading
-├── temperature
-├── humidity
-├── timestamp
-└── valid
-```
-
-```text
-ShockReading
-├── detected
-├── timestamp
-└── valid
-```
-
-```text
-LightReading
-├── intensity
-├── timestamp
-└── valid
-```
-
-These structures represent hardware-specific acquisition results.
-
-They are not part of the Industrial Edge Gateway's common internal data
-model.
-
-The Gateway receives source data through its corresponding connector and
-converts it into the common `Metric` and `DeviceData` representations.
+None of the four current sensor implementations reports a failed hardware
+initialization; their `initialize()` methods currently return `true`.
 
 ---
 
 ## Design Principles
 
-### Single Responsibility
-
-Each sensor handles only its own hardware and measurement acquisition.
-
-### Hardware Abstraction
-
-The `ISensor` interface hides hardware-specific implementation details from
-the `SensorConnector`.
-
-### Common Sensor Interface
-
-All sensors expose the same basic operations:
-
-- initialization;
-- measurement acquisition;
-- sensor identification.
-
-### No Protocol Knowledge
-
-Sensors do not know about:
-
-- MQTT;
-- Sparkplug B;
-- OPC UA;
-- Modbus;
-- HTTP;
-- Gateway communication protocols.
-
-### No Gateway Knowledge
-
-Sensors are independent of the Industrial Edge Gateway.
-
-They produce source-specific readings that are later handled by the
-`SensorConnector` and transferred through the source-device transport layer.
+* **Single Responsibility.** A sensor is responsible only for accessing its own hardware and producing a reading.
+* **Hardware Abstraction.** `ISensor` hides pin assignments, timing details and the underlying sensor library from `SensorConnector`.
+* **Common Interface.** All sensors expose the same initialization, reading and identification operations.
+* **No Protocol Knowledge.** Sensors know nothing about MQTT, Sparkplug, OPC UA or other communication protocols.
+* **No Gateway Knowledge.** A sensor produces a `SensorReading`; how that reading is transmitted or processed is handled by other layers.
 
 ---
 
 ## Future Extensions
 
-New sensors can be added by implementing `ISensor`.
+New sensor types can be added by implementing `ISensor` and extending
+`SensorType` and `SensorReadingData`.
 
-Examples:
+Examples include a BME280 or a CO₂ sensor.
 
-- BME280
-- CO₂ sensor
-- additional digital sensors
-- additional analog sensors
-
-Adding a new sensor does not require changes to the gateway's common data
-model or communication components.
+Such an extension remains within the source-device layer and does not require
+changes to the gateway's `Metric` or `DeviceData` model.
