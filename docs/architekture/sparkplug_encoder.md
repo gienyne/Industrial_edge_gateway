@@ -27,7 +27,7 @@ The encoder never
 
 * reads sensors or communicates with source systems;
 * connects to or publishes messages through the MQTT broker;
-* decides **when** a message is sent — this is handled by
+* decides **when** a message is sent, this is handled by
   `Gatewayapplication`;
 * decodes incoming commands.
 
@@ -197,12 +197,12 @@ logical rebirth inside the same MQTT session.
 The following messages consume the next values:
 
 ```text
-NBIRTH  → 0
-DBIRTH  → 1
-DBIRTH  → 2
-DDATA   → 3
-DDATA   → 4
-DDEATH  → 5
+NBIRTH  -> 0
+DBIRTH  -> 1
+DBIRTH  -> 2
+DDATA   -> 3
+DDATA   -> 4
+DDEATH  -> 5
 ...
 ```
 
@@ -274,8 +274,8 @@ nextSessionBdSeq()
        │
        │ read file
        │ increment
-       │ 255 → 0
-       │ missing / unreadable → 0
+       │ 255 -> 0
+       │ missing / unreadable -> 0
        ▼
  encoder.setBdSeq()
        │
