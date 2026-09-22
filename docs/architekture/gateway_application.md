@@ -18,7 +18,7 @@ the mechanics of acquiring, encoding or transporting data.
 
 The application
 
-- initializes the connectors and tolerates connector failures;
+- initializes the connectors;
 - discovers the initial set of devices during a startup discovery window;
 - publishes the Sparkplug birth sequence (NBIRTH, then one DBIRTH per device);
 - detects new devices and new metrics and republishes the birth sequence;
