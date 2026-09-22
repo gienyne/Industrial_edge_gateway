@@ -328,7 +328,7 @@ The raw MQTT/JSON format is documented in `data_models.md`.
           │ DeviceData
           ▼
 ┌────────────────────┐
-│   Gatewayapplication│
+│ Gatewayapplication │
 └────────────────────┘
 ```
 
@@ -482,7 +482,7 @@ struct OpcUaConnectorConfig
 };
 ```
 
-The current source is **AquaControl**, a CODESYS irrigation simulation
+The current source is **AquaControl** (available on my Github), a CODESYS irrigation simulation
 exposed through OPC UA.
 
 It is represented as:
