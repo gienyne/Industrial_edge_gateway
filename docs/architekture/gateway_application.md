@@ -323,8 +323,8 @@ Because of RBE, silence on the broker does not mean the device is gone.
 The application therefore tracks `lastSeenAt_`, refreshed whenever a connector
 returns data for the device (even if no metric changed). When a device has
 been silent for longer than `deviceTimeout` (15 s by default) the application
-publishes DDEATH and erases the device's state, even if the DDEATH publication
-failed. Only devices already declared by a DBIRTH are checked.
+publishes DDEATH and erases the device's state. 
+Only devices already declared by a DBIRTH are checked.
 
 Sparkplug requires a DDEATH when a device is lost but does not define how the
 loss is detected. The timeout is therefore an implementation decision. It must
@@ -358,7 +358,7 @@ shutdown()
    └─ disconnect from the MQTT broker
 ```
 
-With MQTT 3.1.1 a clean DISCONNECT makes the broker discard the Last Will, so
+With MQTT 3.0.0 a clean DISCONNECT makes the broker discard the Last Will, so
 the application publishes NDEATH itself before disconnecting. NDEATH already
 implies that every device of the node is gone; no per-device DDEATH is sent.
 
@@ -403,8 +403,8 @@ the same session.
   metric missing from one payload (a failed DHT11 read, an unreadable OPC UA
   node) keeps its last value and its original timestamp, and its return does not
   cause a rebirth. Nothing tells a Host that such a value has become stale. If
-  that is needed later, Sparkplug's `is_null` flag is the natural way to say
-  "no current value".
+  that is needed later, Sparkplug's `is_null` flag will be probably the natural way
+   to say" no current value".
 - **A slow connector stalls the whole cycle.** Connectors are called one after
   the other on the main thread. An OPC UA source that is down blocks
   `collectData()` for the duration of the connection attempt (about 2 s against
