@@ -132,9 +132,7 @@ layer.
 
 A source device has its own configuration, independent from the gateway. The
 ESP32 firmware reads Wi-Fi credentials, broker address, `DEVICE_ID` and
-`MQTT_CLIENT_ID` from `Config.h`, which is ignored by Git; `Config.h.example`
-is committed. Changing the gateway configuration never requires reflashing a
-board, and the reverse is also true.
+`MQTT_CLIENT_ID` from `Config.h`.
 
 ```text
 Source device                          Gateway
