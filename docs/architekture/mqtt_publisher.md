@@ -64,7 +64,7 @@ The publisher never
 ```cpp
 struct MQTTPublisherConfig
 {
-    std::string brokerAddress;                 // e.g. tcp://localhost:1883
+    std::string brokerAddress;
     std::string clientId;
     std::string bdSeqFilePath = "bdseq.dat";
 };
