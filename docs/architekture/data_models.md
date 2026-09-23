@@ -8,33 +8,33 @@ hardware, protocol and data format; each one is translated into `Metric` and
 source-independent.
 
 ```text
-Source Device
-     │
-     ▼
-raw transport
-     │
-═══════ transport boundary ═══════
-     │
-     ▼
-Connector
-     │
-     ▼
-Metric
-     │
-     ▼
-DeviceData
-     │
-     ▼
-Protobuf Payload   (inside the encoder)
-     │
-     ▼
-SparkplugPayload
-     │
-     ▼
-Mqttpublisher
-     │
-     ▼
-MQTT Broker
+           Source Device
+                 │
+                 ▼
+          raw transport
+                 │
+ ═══════ transport boundary ═══════
+                 │
+                 ▼
+             Connector
+                 │
+                 ▼
+              Metric
+                 │
+                 ▼
+             DeviceData
+                 │
+                 ▼
+Protobuf Payload (inside the encoder)
+                 │
+                 ▼
+          SparkplugPayload
+                 │
+                 ▼
+           Mqttpublisher
+                 │
+                 ▼
+            MQTT Broker
 ```
 
 For a sensor-based source such as the ESP32, a source-specific layer exists
