@@ -2,266 +2,191 @@
 
 ## Purpose
 
-The `Configuration` class stores all application settings required by the
-Industrial Edge Gateway.
+All gateway and connector settings live in one JSON file, loaded at startup and
+parsed into typed configuration structures. Each component receives exactly
+the structure it needs at construction.
 
-It provides a single source of gateway-level configuration without
-introducing global state.
-
-The class does not contain application logic.
+There is no global configuration state, no Singleton, and no configuration
+value accessed through a global object. Secrets never live in the source
+code (see *Files and Version Control*).
 
 ---
 
 ## Responsibilities
 
-The `Configuration` class
+The `config` namespace (`ConfigLoader`)
 
-- stores gateway-level application settings;
-- validates configuration values;
-- provides read-only access through getters.
+* loads the JSON file;
+* parses each section into the structure of the component that owns it;
+* reports errors as exceptions.
 
-The class never
+It never
 
-- communicates with sensors;
-- acquires source data;
-- encodes Sparkplug messages;
-- publishes MQTT messages;
-- contains application logic.
+* communicates with sources or the broker;
+* contains application logic;
+* decides what happens after a configuration error (`main.cpp` does).
 
 ---
 
-## Configuration Parameters
+## Configuration Structures
 
-### MQTT
+Configuration is split by owner instead of being one large object:
 
-- Broker Address
-- Broker Port
-- Client ID
+| Structure                  | Owner                | Content                                                         |
+| -------------------------- | -------------------- | --------------------------------------------------------------- |
+| `GatewayApplicationConfig` | `Gatewayapplication` | encoder config, MQTT config, `discoveryWindow`, `deviceTimeout` |
+| `SparkplugEncodeConfig`    | `SparkplugEncoder`   | `namespaceId`, `groupId`, `edgeNodeId`                          |
+| `MQTTPublisherConfig`      | `Mqttpublisher`      | `brokerAddress`, `clientId`, `bdSeqFilePath`                    |
+| `ESP32ConnectorConfig`     | `ESP32Connector`     | `deviceId` (MQTT client id), `brokerAddress`, `topicFilter`     |
+| `OpcUaConnectorConfig`     | `OpcUaConnector`     | list of `OpcUaSourceConfig` (endpoint, credentials, metrics)    |
 
-### Sparkplug
+`GatewayApplicationConfig` embeds the encoder and publisher structures, so
+`Gatewayapplication` can build both components itself.
 
-- Group ID
-- Edge Node ID
-
-### Gateway Runtime
-
-- Publish Interval
-
-These parameters apply to the gateway as a whole.
-
-Source-specific configuration is not stored in the global
-`Configuration` object.
+The gateway has **no global device id**. Device identity belongs to the
+connectors (see `gateway_connectors.md`).
 
 ---
 
-## Position in the Architecture
+## JSON Layout
+
+The configuration is divided into two main sections:
+
+* `gateway` contains gateway-wide settings such as MQTT, Sparkplug and
+  lifecycle timeouts.
+* `connectors` contains the configuration of each source connector.
+  OPC UA sources are defined as entries in `connectors.opcua.sources`.
+
+The concrete JSON structure and example values are provided by:
+
+* `config/config.json.example`
+* `config_docker/config.docker.json.example`
+
+| JSON section       | Parsed by            | Result                     |
+| ------------------ | -------------------- | -------------------------- |
+| `gateway.*`        | `parseGatewayConfig` | `GatewayApplicationConfig` |
+| `connectors.esp32` | `parseEsp32Config`   | `ESP32ConnectorConfig`     |
+| `connectors.opcua` | `parseOpcUaConfig`   | `OpcUaConnectorConfig`     |
+
+Adding a second OPC UA machine is one more object in `sources`; no code changes.
+
+---
+
+## Loading
 
 ```text
-                 GatewayApplication
-                         │
-                         ▼
-                  Configuration
-                         │
-              ┌──────────┴──────────┐
-              ▼                     ▼
-      SparkplugEncoder        MQTTPublisher
+main.cpp
+   │
+   ├─ config::loadFile("config/config.json")   ─► nlohmann::json root
+   ├─ config::parseEsp32Config(root)           ─► ESP32ConnectorConfig
+   ├─ config::parseOpcUaConfig(root)           ─► OpcUaConnectorConfig
+   └─ config::parseGatewayConfig(root)         ─► GatewayApplicationConfig
 ```
 
-Configuration is shared by gateway components through dependency injection.
+The path is relative to the working directory. A missing file, invalid JSON, a
+missing required field or an unknown `dataType` raises an exception whose
+message names the file or the JSON path (for example
+`Missing required field "endpoint" in connectors.opcua.sources[]`); `main.cpp`
+prints it and exits with code 1, so the gateway never starts with a half-valid
+configuration. Each parse function handles one section, so a new connector adds
+one function without touching the others.
 
-Connector-specific configuration is handled separately by the corresponding
-gateway connector.
+Everything is required except three gateway settings, which have defaults:
+
+| Optional field               | Default     |
+| ---------------------------- | ----------- |
+| `gateway.mqtt.bdSeqFilePath` | `bdseq.dat` |
+| `gateway.discoveryWindowMs`  | `3000`      |
+| `gateway.deviceTimeoutMs`    | `15000`     |
+
+`dataType` accepts `Boolean`, `Integer`, `Double` or `String`. Both connector
+sections (`esp32` and `opcua`) are currently mandatory, because `main.cpp`
+creates both connectors unconditionally.
 
 ---
 
-## Connector Configuration
+## Files and Version Control
 
-A gateway connector may require configuration specific to its source
-device.
+| File                                       | Purpose                                               | In Git        |
+| ------------------------------------------ | ----------------------------------------------------- | ------------- |
+| `config/config.json`                       | local configuration                                   | no            |
+| `config/config.json.example`               | template with placeholders                            | yes           |
+| `config_docker/config.docker.json`         | configuration used in the container                   | no            |
+| `config_docker/config.docker.json.example` | template for the container configuration              | yes           |
+| `certs/gateway_cert.der`                   | OPC UA client certificate (public part)               | not sensitive |
+| `certs/gateway_key.pem`                    | OPC UA client private key                             | no            |
+| `bdseq.dat`                                | generated session counter, see `sparkplug_encoder.md` | no            |
 
-Connector-specific configuration is represented by a dedicated
-configuration structure when required and is injected when the connector is
-constructed.
+The rule: **any file containing real credentials or a private key is ignored
+by Git, and only its `.example` counterpart is committed.**
 
-For example:
-
-```cpp
-struct ESP32ConnectorConfig
-{
-    const char* deviceId;
-
-    // Future transport-specific parameters
-};
-```
-
-The connector receives this configuration during construction:
-
-```cpp
-ESP32Connector(const ESP32ConnectorConfig& config);
-```
-
-The global `Configuration` therefore does not contain a single global
-`deviceId`.
-
-The ownership and structure of connector-specific configuration are
-documented in `gateway-connectors.md`.
-
-The mechanism used to populate connector configuration remains open.
-
-Possible future sources include
-
-- hard-coded values;
-- JSON configuration files;
-- other external configuration sources.
-
-Changing the configuration source does not require changes to the
-`IConnector` interface or the common internal data model.
+This is a rule about *sensitivity*, not about whether `config.json` requires
+the field: both `certificatePath` and `privateKeyPath` are required JSON
+fields (`ConfigLoader` throws if either is missing), so the gateway cannot
+start without a certificate and a key on disk somewhere. The certificate
+itself is public key material, not a secret, so unlike the private key it
+could be committed; whether it currently is depends on the repository's own
+choice, not on anything the gateway enforces.
 
 ---
 
-## Public Interface
+## Local and Docker Configuration
 
-```cpp
-class Configuration
-{
-public:
+The two JSON files have the same structure. They differ in network addresses:
+inside a container `127.0.0.1` and `localhost` designate the container itself,
+so the broker and the OPC UA server running on the host are reached through
+`host.docker.internal`.
 
-    bool load();
+| Setting                          | Local                      | Docker                                |
+| -------------------------------- | -------------------------- | ------------------------------------- |
+| `gateway.mqtt.brokerAddress`     | `tcp://localhost:1883`     | `tcp://host.docker.internal:1883`     |
+| `connectors.esp32.brokerAddress` | `tcp://localhost:1883`     | `tcp://host.docker.internal:1883`     |
+| `connectors.opcua…endpoint`      | `opc.tcp://127.0.0.1:4840` | `opc.tcp://host.docker.internal:4840` |
 
-    bool validate() const;
-
-    const char* brokerAddress() const;
-
-    uint16_t brokerPort() const;
-
-    const char* clientId() const;
-
-    const char* groupId() const;
-
-    const char* edgeNodeId() const;
-
-    uint32_t publishInterval() const;
-};
-```
-
-The interface provides read-only access to the configuration values used by
-the gateway components.
+The Docker configuration and the certificates are mounted into the container
+at run time, not copied into the image, so credentials never end up in an image
+layer.
 
 ---
 
-## Loading and Validation
+## Not Configurable Yet
 
-Configuration loading and validation are separate responsibilities.
-
-The `load()` method obtains the configuration values from the configured
-source.
-
-The `validate()` method checks whether the loaded values are valid for
-gateway operation.
-
-Conceptually:
-
-```text
-Configuration Source
-        │
-        ▼
-      load()
-        │
-        ▼
-   Configuration
-        │
-        ▼
-     validate()
-        │
-        ▼
-  GatewayApplication
-```
-
-The gateway should not start normal operation if the required gateway
-configuration is invalid.
-
----
-
-## Dependency Injection
-
-The `Configuration` object is created by `GatewayApplication` and passed to
-components that require gateway-level configuration.
-
-```text
-GatewayApplication
-        │
-        ▼
- Configuration
-        │
- ┌──────┼────────────────┐
- ▼      ▼                ▼
-
-Encoder  MQTTPublisher   other gateway components
-```
-
-This keeps configuration explicit and avoids hidden dependencies.
+* The polling period (500 ms) is fixed in `main.cpp`.
+* The reconnection cooldowns (5 s) are compile-time constants.
+* `deviceTimeout` is global, not per source.
 
 ---
 
 ## Source-Device Configuration
 
-Source devices may have configuration that is completely independent from
-the gateway configuration.
-
-For example, an ESP32 may have its own local configuration required for
-sensor acquisition or source-side communication.
-
-This configuration belongs to the source device and is not part of the
-gateway `Configuration`.
-
-The distinction is therefore:
+A source device has its own configuration, independent from the gateway. The
+ESP32 firmware reads Wi-Fi credentials, broker address, `DEVICE_ID` and
+`MQTT_CLIENT_ID` from `Config.h`, which is ignored by Git; `Config.h.example`
+is committed. Changing the gateway configuration never requires reflashing a
+board, and the reverse is also true.
 
 ```text
-Source Device
-┌─────────────────────────────┐
-│ Local device configuration  │
-│ Sensor configuration        │
-│ Source-side parameters      │
-└─────────────────────────────┘
-
-             │
-             │ Raw Transport
-             ▼
-
-Industrial Edge Gateway
-┌─────────────────────────────┐
-│ Gateway Configuration       │
-│ Connector Configuration     │
-└─────────────────────────────┘
+Source device                          Gateway
+Config.h  (firmware)                   config/config.json
+   │                                        │
+   └── raw/<DEVICE_ID> over MQTT ──────────►┘  (only link between the two)
 ```
-
-Gateway configuration and source-device configuration are independent.
 
 ---
 
 ## Design Principles
 
-- Single Responsibility Principle
-- Dependency Injection
-- Explicit configuration ownership
-- Read-only access through getters
-- No global variables
-- No Singleton
-- Separation of gateway and source-device configuration
+* One configuration structure per owning component.
+* Dependency injection: structures are passed in, never fetched globally.
+* Fail fast on invalid configuration.
+* Secrets outside the source code and outside Git.
+* Gateway and source-device configuration are independent.
 
 ---
 
 ## Future Extensions
 
-Future versions may load gateway configuration from external sources such
-as
-
-- JSON files;
-- environment variables;
-- other configuration providers.
-
-Connector-specific configuration may also be populated from external
-configuration sources.
-
-These changes should not require modifications to the common gateway data
-model or the `IConnector` interface.
+* Value validation (ranges, non-empty identifiers) after parsing.
+* Overriding secrets with environment variables or Docker secrets.
+* Per-source timeouts and polling intervals.
+* Reloading the configuration without restarting.
