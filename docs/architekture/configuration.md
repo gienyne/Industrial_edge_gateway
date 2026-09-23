@@ -6,10 +6,6 @@ All gateway and connector settings live in one JSON file, loaded at startup and
 parsed into typed configuration structures. Each component receives exactly
 the structure it needs at construction.
 
-There is no global configuration state, no Singleton, and no configuration
-value accessed through a global object. Secrets never live in the source
-code (see *Files and Version Control*).
-
 ---
 
 ## Responsibilities
