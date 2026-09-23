@@ -2,518 +2,248 @@
 
 ## Overview
 
-The Industrial Edge Gateway is built around a common internal data model.
-
-Source devices may use different hardware, sensors and communication
-protocols. Their source-specific data is therefore transformed into a
-common representation inside the Industrial Edge Gateway before it is
-processed further.
-
-The gateway separates source-specific acquisition from its internal data
-model and from the communication protocols used for standardized
-publication.
-
-The resulting data flow is:
+The gateway is built around a common internal data model. Sources differ in
+hardware, protocol and data format; each one is translated into `Metric` and
+`DeviceData` at the gateway boundary, and everything after that point is
+source-independent.
 
 ```text
 Source Device
-    │
-    │ Source-specific data
-    ▼
-Source Connector
-    │
-    ▼
+     │
+     ▼
+raw transport
+     │
+═══════ transport boundary ═══════
+     │
+     ▼
+Connector
+     │
+     ▼
 Metric
-    │
-    ▼
+     │
+     ▼
 DeviceData
-    │
-    ▼
+     │
+     ▼
+Protobuf Payload   (inside the encoder)
+     │
+     ▼
 SparkplugPayload
-    │
-    ▼
-MQTT Publisher
-    │
-    ▼
+     │
+     ▼
+Mqttpublisher
+     │
+     ▼
 MQTT Broker
 ```
 
-For sensor-based sources such as the ESP32, hardware-specific sensor
-readings may exist before the data reaches the gateway.
+For a sensor-based source such as the ESP32, a source-specific layer exists
+before the boundary:
 
 ```text
-ESP32
-    │
-    ▼
-Sensor
-    │
-    ▼
-SensorReading
-    │
-    ▼
-Source Transport
-    │
-    ▼
-ESP32Connector
-    │
-    ▼
-Metric
-    │
-    ▼
-DeviceData
+Sensor ─► SensorReading ─► SourceData ─► JSON on raw/<deviceId> ═► ESP32Connector ─► Metric
 ```
 
-Other industrial sources may provide their data through protocols such as
-OPC UA or Modbus and may therefore not require a SensorReading layer.
+An OPC UA source has no such layer: the `OpcUaConnector` turns a node value
+directly into a `Metric`.
 
-Each model has one clearly defined responsibility and represents a specific
-abstraction level.
+Each model has one responsibility and one abstraction level.
 
 ---
 
-## Data Models
+## SensorReading (source side)
 
-### Configuration
+`SensorReading` is a source-specific measurement produced by one firmware
+sensor. It is a tagged union: `type` says which member of `data` is valid.
 
-The `Configuration` model represents runtime parameters required by an
-application component.
+```cpp
+enum class SensorType { DHT11, SHOCK, LIGHT, BUTTON };
 
-Configuration is independent from measurement data and does not contain
-sensor values, metrics or device snapshots.
+struct DHT11Reading   { float temperature; float humidity; unsigned long timestamp; };
+struct ShockReading   { bool detected;                      unsigned long timestamp; };
+struct LightReading   { int intensity;                      unsigned long timestamp; };
+struct ButtonReading  { bool pressed;                       unsigned long timestamp; };
 
-Typical gateway configuration parameters include:
+union SensorReadingData { DHT11Reading dht11; ShockReading shock;
+                          LightReading light; ButtonReading button; };
 
-- MQTT Broker
-- MQTT Port
-- MQTT Client ID
-- Sparkplug Group ID
-- Sparkplug Edge Node ID
-- Publish Interval
-- MQTT QoS
-- MQTT Retain Flag
+struct SensorReading { SensorType type; SensorReadingData data; };
+```
 
-Source devices such as the ESP32 may have their own local configuration,
-for example sensor settings, source transport parameters or local sampling
-intervals.
-
-Gateway configuration and source-device configuration are therefore
-independent concerns.
-
-The exact separation and ownership of these configuration parameters is
-defined by the corresponding application components.
+The `timestamp` fields are `millis()`: time since the board booted, not a date.
+Readings belong to the firmware and are not part of the gateway model.
 
 ---
 
-### SensorReading
+## Raw Transport (ESP32 → Gateway)
 
-`SensorReading` represents a source-specific measurement produced by a
-hardware sensor.
-
-This model is only required for sources that directly acquire physical
-measurements through sensors.
-
-Different sensors may define different reading structures because they
-measure different physical quantities and may provide different metadata.
-
-Current sensor models include:
+The boundary between the two sides is a JSON document published over MQTT.
 
 ```text
-DHT11Reading
-├── temperature
-├── humidity
-├── timestamp
-└── valid
+topic:    raw/<deviceId>
+payload:  {
+            "deviceId": "esp32-dz",
+            "timestamp": 84213,
+            "readings": [
+              { "type": "DHT11",  "temperature": 23.6, "humidity": 53.0, "timestamp": 84210 },
+              { "type": "SHOCK",  "detected": false,                    "timestamp": 84211 },
+              { "type": "LIGHT",  "intensity": 592,                     "timestamp": 84212 },
+              { "type": "BUTTON", "pressed": false,                     "timestamp": 84212 }
+            ]
+          }
 ```
 
-```text
-ShockReading
-├── detected
-├── timestamp
-└── valid
-```
+Which readings appear depends on the sensors of that particular board.
+Invalid readings are left out by the firmware's `SensorConnector`.
 
-```text
-LightReading
-├── intensity
-├── timestamp
-└── valid
-```
-
-`SensorReading` is source-specific and does not form part of the common
-gateway data model.
-
-For example, an OPC UA connector may receive a value directly from an
-industrial device and convert it directly into a `Metric` without creating
-a `SensorReading`.
+Device identity is determined by the MQTT topic. The `deviceId` field inside
+the JSON payload is not used by the gateway for device identification.
 
 ---
 
-### Metric
+## Metric
 
-A `Metric` represents one standardized measurement inside the Industrial
-Edge Gateway.
+A `Metric` is one standardized measurement inside the gateway.
 
-Every measurement is converted into this common representation before it
-enters the gateway's common processing pipeline.
+```cpp
+enum class MetricDataType { Boolean, Integer, Double, String };
 
-The original source may be an embedded sensor, an OPC UA server, a Modbus
-device, a REST interface or another industrial data source.
-
-Conceptually:
-
-```text
-Metric
-├── name
-├── datatype
-├── value
-├── unit
-└── timestamp
+struct Metric
+{
+    std::string name;
+    MetricDataType datatype;
+    std::variant<bool, int, double, std::string> value;
+    std::string unit;
+    unsigned long long timestamp;     // Unix epoch, milliseconds
+};
 ```
 
-Examples:
+Metrics produced by the current connectors:
 
-```text
-Temperature  = 24.8 °C
-Humidity     = 56 %
-Shock        = true
-Light        = 820 lx
-MotorSpeed   = 1500 rpm
-MotorCurrent = 4.2 A
-```
+| Source                          | Metrics (type)                                                                              |
+|---------------------------------|----------------------------------------------------------------------------------------------|
+| ESP32 (DHT11)                   | `temperature` (Double, C), `humidity` (Double, %)                                                  |
+| ESP32 (shock, light, button)    | `shockDetected` (Boolean), `lightIntensity` (Integer), `buttonPressed` (Boolean)             |
+| ESP32 (every payload)           | `uptimeMs` (Integer, ms)                                                                     |
+| OPC UA `aquacontrol-opcua`      | `tankLevel` (Double, L), `pumpActive` (Boolean), `valveActive` (Boolean), `waterConsumption` (Double, L), `rainSimActive` (Boolean) |
 
-The gateway core processes standardized metrics and does not depend on the
-hardware-specific structures used by individual source devices.
+The gateway does not care whether a value came from a DHT11, a CODESYS
+variable or a Modbus register.
+
+### Timestamps
+
+Every `Metric.timestamp` and `DeviceData.timestamp` is set by the gateway at
+collection time with `nowMillis()` (`TimeUtils.h`). Source clocks are not used
+as Sparkplug timestamps: the ESP32 only knows its uptime, and the OPC UA
+`SourceTimestamp` is not read in the current version. The ESP32's own
+`millis()` is preserved as the separate `uptimeMs` metric. If that value drops
+between two messages, the board has rebooted.
+
+`DeviceData.timestamp` is the collection time of that whole snapshot, not a
+per-metric time; each `Metric.timestamp` is its own. A `DeviceData` produced
+by RBE filtering keeps the incoming snapshot's timestamp, even though the
+metrics it carries may have been collected together with others that did not
+change and were left out.
 
 ---
 
-### DeviceData
+## DeviceData
 
-`DeviceData` is the common internal gateway representation of one physical
-device.
+`DeviceData` is the internal representation of one physical device: its
+identity and the metrics collected in one cycle.
 
-It groups all metrics belonging to the same device into one logical data
-object.
-
-Conceptually:
-
-```text
-DeviceData
-├── deviceId
-├── metrics
-└── timestamp
+```cpp
+struct DeviceData
+{
+    std::string deviceId;
+    std::vector<Metric> metrics;
+    unsigned long long timestamp;
+};
 ```
 
-Example:
-
-```text
-ESP32-01
-├── Temperature
-├── Humidity
-├── Shock
-└── Light
-```
-
-A future industrial device follows the same internal structure regardless
-of its native communication protocol.
-
-Example:
-
-```text
-Robot-01
-├── Temperature
-├── Motor Current
-├── Speed
-└── Alarm
-```
-
-`DeviceData` belongs to the internal data model of the Industrial Edge
-Gateway.
-
-The source device does not need to know or use this internal representation.
-It only provides its source-specific data through its communication
-interface.
-
-The `deviceId` identifies the physical source represented by the data.
-
-The `timestamp` of `DeviceData` represents the point at which the gateway
-assembled the current device snapshot.
-
-Each individual `Metric` keeps the timestamp of its own measurement.
-
-This distinction allows the gateway to preserve both the acquisition time
-of individual measurements and the creation time of the complete device
-snapshot.
+- **Identity.** `deviceId` becomes the Sparkplug Device ID. It is unique across
+  all connectors.
+- **One device, one object.** Connectors never merge devices.
+- **Two uses.** Connectors return the *full current state*. After RBE
+  filtering, `Gatewayapplication` may use another `DeviceData` containing only
+  the changed metrics.
+- **Empty `metrics`.** The transport delivered something from the device but
+  it could not be decoded (corrupted JSON). This is used as a liveness signal
+  only: it refreshes the device's last-seen time and publishes nothing.
+  `DeviceData` deliberately has no parsing status field: no consumer needs one
+  yet. (Valid JSON with no recognized readings is not empty: it still carries
+  `uptimeMs`.)
 
 ---
 
-### SparkplugPayload
+## SparkplugPayload
 
-`SparkplugPayload` represents the communication model produced by the
-Sparkplug Encoder.
+The communication model produced by the encoder and consumed by the publisher.
 
-It contains the information required by the MQTT Publisher to publish a
-Sparkplug B message.
+```cpp
+using MqttTopic     = std::string;
+using BinaryPayload = std::vector<uint8_t>;
 
-Conceptually:
-
-```text
-SparkplugPayload
-├── topic
-├── payload
-├── messageType
-├── seq
-└── bdSeq
+struct SparkplugPayload
+{
+    MqttTopic     topic;
+    BinaryPayload payload;    // serialized Sparkplug B Protobuf
+    int           qos;
+    bool          retain;
+};
 ```
 
-The Sparkplug Encoder transforms the gateway's internal `DeviceData` into
-the Sparkplug-specific representation.
+`seq` and `bdSeq` are not fields of this struct: they are written inside the
+serialized bytes by the encoder. The publisher never needs them.
+
+Between `DeviceData` and `SparkplugPayload` sits a third representation, the
+Protobuf `Payload` generated from the Sparkplug B schema. It exists only inside
+the encoder:
 
 ```text
-DeviceData
-    │
-    ▼
-Sparkplug Encoder
-    │
-    ▼
-SparkplugPayload
+DeviceData ──► Payload (Protobuf object) ──► bytes ──► SparkplugPayload
+   internal        Sparkplug structure       serialized     transport envelope
 ```
-
-The MQTT Publisher works exclusively with `SparkplugPayload`.
-
-It does not interact directly with sensors, source-specific data models or
-industrial protocols.
-
-Sparkplug-specific concepts therefore remain outside the common internal
-data model.
 
 ---
 
 ## Data Ownership
 
-The ownership of the different models is intentionally separated.
+| Model              | Ownership                         |
+|--------------------|-----------------------------------|
+| `SensorReading`    | Source-specific (firmware)        |
+| Raw JSON           | Boundary contract                 |
+| `Metric`           | Gateway internal                  |
+| `DeviceData`       | Gateway internal                  |
+| Protobuf `Payload` | Encoder internal                  |
+| `SparkplugPayload` | Gateway communication             |
 
-| Model               | Ownership          |
-|---------------------|---------------------|
-| `SensorReading`      | Source-specific     |
-| `Metric`             | Gateway internal    |
-| `DeviceData`         | Gateway internal    |
-| `SparkplugPayload`   | Gateway communication |
-
-This boundary is fundamental to the architecture.
-
-```text
-SOURCE SIDE
-────────────────────────────────────────
-Sensor
-    │
-    ▼
-SensorReading
-    │
-    │ Source transport
-    ▼
-
-══════════════ GATEWAY BOUNDARY ══════════════
-
-    │
-    ▼
-Source Connector
-    │
-    ▼
-Metric
-    │
-    ▼
-DeviceData
-    │
-    ▼
-SparkplugPayload
-    │
-    ▼
-MQTT Publisher
-
-──────────────────────────────────────────────
-GATEWAY SIDE
-```
-
-The gateway therefore does not require source devices to understand its
-internal `Metric` or `DeviceData` models.
-
-This allows different types of machines to be integrated without forcing
-them to adopt the gateway's internal software structures.
+The gateway does not require a source device to know `Metric` or
+`DeviceData`. A machine only has to be reachable by a connector.
 
 ---
 
 ## Design Principles
 
-### Separation of Responsibilities
-
-Each model represents one abstraction level.
-
-For a sensor-based source:
-
-```text
-Sensor
-    │
-    ▼
-SensorReading
-    │
-    ▼
-Metric
-    │
-    ▼
-DeviceData
-    │
-    ▼
-SparkplugPayload
-```
-
-For an industrial source that provides data directly through a protocol
-such as OPC UA or Modbus:
-
-```text
-Industrial Device
-    │
-    ▼
-Connector
-    │
-    ▼
-Metric
-    │
-    ▼
-DeviceData
-    │
-    ▼
-SparkplugPayload
-```
-
-No model combines responsibilities from multiple layers.
+- **One abstraction level per model.** No structure mixes source, gateway and
+  protocol concerns.
+- **Hardware independence.** The core never sees `SensorReading`.
+- **Protocol independence.** `Metric` and `DeviceData` know nothing about
+  MQTT, Sparkplug, OPC UA or Modbus.
+- **Centralized standardization.** Sparkplug B is produced once, by the
+  encoder, so no source has to implement it.
+- **Extensibility.** A new source needs a connector that produces `Metric` and
+  `DeviceData`; the rest of the pipeline is unchanged.
 
 ---
 
-### Hardware Independence
+## Known Limitations
 
-The common gateway data model does not depend on a specific sensor or
-hardware platform.
-
-Source-specific acquisition remains isolated within the corresponding
-source-side components and connectors.
-
-The gateway core operates on `Metric` and `DeviceData` instead of directly
-processing hardware-specific structures.
-
----
-
-### Protocol Independence
-
-The internal data model does not depend on Sparkplug B, MQTT, OPC UA,
-Modbus or any other communication protocol.
-
-Source connectors are responsible for transforming protocol-specific source
-data into the gateway's common representation.
-
-The Sparkplug Encoder is responsible for transforming the internal gateway
-representation into the Sparkplug-specific communication format.
-
-This keeps protocol-specific processing outside the common internal model.
-
----
-
-### Centralized Standardization
-
-Sparkplug B standardization is performed centrally by the Industrial Edge
-Gateway.
-
-Source devices are not required to implement the Sparkplug data model.
-
-The architecture therefore follows:
-
-```text
-Heterogeneous Sources
-        │
-        ▼
-Source Connectors
-        │
-        ▼
-Common Gateway Model
-        │
-        ▼
-Sparkplug Encoder
-        │
-        ▼
-Sparkplug B
-```
-
-This centralizes the complexity of standardized industrial communication
-and prevents every source device from having to implement the same
-Sparkplug logic.
-
----
-
-### Extensibility
-
-Adding support for a new data source requires a corresponding connector
-that transforms the source-specific data into the common gateway model.
-
-Examples include:
-
-```text
-ESP32Connector
-OPCUAConnector
-ModbusConnector
-RESTConnector
-        │
-        ▼
-     Metric
-        │
-        ▼
-   DeviceData
-```
-
-The remaining gateway processing pipeline remains unchanged.
-
-Once the connector produces `Metric` and `DeviceData`, the same Sparkplug
-encoding and MQTT publication mechanisms can be used for the new source.
-
----
-
-## Summary
-
-The internal data model forms the foundation of the Industrial Edge Gateway.
-
-It provides:
-
-- a common representation for measurements from different sources;
-- a clear separation between source-specific data and gateway-internal data;
-- independence from specific hardware platforms;
-- independence from source communication protocols;
-- centralized Sparkplug B standardization;
-- a modular and extensible foundation for future industrial machine
-  integration.
-
-The key architectural boundary is:
-
-```text
-Source-specific data
-        │
-        ▼
-Source Connector
-        │
-════════════════════════════════
-      Gateway Boundary
-════════════════════════════════
-        │
-        ▼
-Metric
-        │
-        ▼
-DeviceData
-        │
-        ▼
-SparkplugPayload
-        │
-        ▼
-MQTT
-```
-
-`SensorReading` belongs to the source-specific side, while `Metric`,
-`DeviceData` and the subsequent processing models belong to the Industrial
-Edge Gateway.
+- `uptimeMs` is stored as a 32-bit `Integer` and wraps after roughly 24.8 days
+  without a reboot.
+- `String` metrics are supported by the model and the encoder, and the OPC UA
+  connector can read them, but that path has not been tested against a real
+  server; the ESP32 firmware does not produce strings.
+- Only corrupted JSON is signalled by empty `metrics`. A valid payload with an
+  unexpected structure, or with no recognized readings, looks like a healthy
+  device that reports only `uptimeMs`.
