@@ -53,6 +53,30 @@ The configuration is divided into two main sections:
 * `connectors` contains the configuration of each source connector.
   OPC UA sources are defined as entries in `connectors.opcua.sources`.
 
+```text
+config.json
+│
+├── gateway
+│   ├── mqtt
+│   ├── sparkplug
+│   ├── discoveryWindowMs
+│   └── deviceTimeoutMs
+│
+└── connectors
+    ├── esp32
+    │   ├── deviceId
+    │   ├── brokerAddress
+    │   └── topicFilter
+    │
+    └── opcua
+        └── sources[]
+            ├── endpoint
+            ├── credentials
+            ├── certificatePath
+            ├── privateKeyPath
+            └── metrics[]
+```
+
 The concrete JSON structure and example values are provided by:
 
 * `config/config.json.example`
