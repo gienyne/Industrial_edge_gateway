@@ -35,13 +35,26 @@ The publisher never
 ## Position in the Architecture
 
 ```text
-DeviceData ─► SparkplugEncoder ─► SparkplugPayload ─► Mqttpublisher ─► MQTT Broker
-                    ▲                                       │
-                    └──── Will payload, nodeCommandTopic ───┤
-                                                            ▼
-                                                  Rebirth request
-                                                  (atomic flag, read by
-                                                   Gatewayapplication)
+                          Gateway
+                             │
+              ┌──────────────┴──────────────┐
+              │                             │
+              ▼                             ▼
+     SparkplugEncoder                  Mqttpublisher
+              │                             │
+              │ SparkplugPayload            │ MQTT
+              └────────────────────────────►│
+                                            │
+                                            ▼
+                                      MQTT Broker
+                                            │
+                                            │ NCMD / Rebirth
+                                            ▼
+                                      Mqttpublisher
+                                            │
+                                            │ atomic flag
+                                            ▼
+                                    Gatewayapplication
 ```
 
 ---
