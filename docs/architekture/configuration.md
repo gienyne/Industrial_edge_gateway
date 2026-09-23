@@ -101,31 +101,6 @@ creates both connectors unconditionally.
 
 ---
 
-## Files and Version Control
-
-| File                                       | Purpose                                               | In Git        |
-| ------------------------------------------ | ----------------------------------------------------- | ------------- |
-| `config/config.json`                       | local configuration                                   | no            |
-| `config/config.json.example`               | template with placeholders                            | yes           |
-| `config_docker/config.docker.json`         | configuration used in the container                   | no            |
-| `config_docker/config.docker.json.example` | template for the container configuration              | yes           |
-| `certs/gateway_cert.der`                   | OPC UA client certificate (public part)               | not sensitive |
-| `certs/gateway_key.pem`                    | OPC UA client private key                             | no            |
-| `bdseq.dat`                                | generated session counter, see `sparkplug_encoder.md` | no            |
-
-The rule: **any file containing real credentials or a private key is ignored
-by Git, and only its `.example` counterpart is committed.**
-
-This is a rule about *sensitivity*, not about whether `config.json` requires
-the field: both `certificatePath` and `privateKeyPath` are required JSON
-fields (`ConfigLoader` throws if either is missing), so the gateway cannot
-start without a certificate and a key on disk somewhere. The certificate
-itself is public key material, not a secret, so unlike the private key it
-could be committed; whether it currently is depends on the repository's own
-choice, not on anything the gateway enforces.
-
----
-
 ## Local and Docker Configuration
 
 The two JSON files have the same structure. They differ in network addresses:
