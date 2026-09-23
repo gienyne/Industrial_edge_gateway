@@ -11,7 +11,7 @@ source-independent.
            Source Device
                  │
                  ▼
-          raw transport
+           raw transport
                  │
  ═══════ transport boundary ═══════
                  │
