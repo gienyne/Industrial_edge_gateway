@@ -91,11 +91,6 @@ The publisher receives the encoder by reference because a session needs two
 things from it: the Last Will payload and the topic of the command
 subscription.
 
-`connectSession()` is public in the header, but nothing outside `Mqttpublisher`
-calls it today — only `initialize()` and `publish()` do. It is therefore
-currently exposed as part of the public interface, although its use is
-internal to the publisher.
-
 ---
 
 ## Session Lifecycle
