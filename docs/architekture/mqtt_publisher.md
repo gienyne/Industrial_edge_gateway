@@ -2,336 +2,205 @@
 
 ## Purpose
 
-The `MQTTPublisher` is responsible for MQTT communication between the
-Industrial Edge Gateway and the MQTT Broker.
+`Mqttpublisher` handles all MQTT communication between the gateway and the
+broker, using the Eclipse Paho asynchronous C++ client.
 
-It acts purely as a transport component.
-
-The publisher does not know how Sparkplug messages are created and never
-interprets their contents.
-
-The `MQTTPublisher` belongs exclusively to the Industrial Edge Gateway.
+It transports already-encoded Sparkplug messages. It does not create or
+interpret outgoing Sparkplug messages. The only Sparkplug-specific input it
+handles is the incoming Node Control/Rebirth command, because it owns the
+NCMD subscription.
 
 ---
 
 ## Responsibilities
 
-The `MQTTPublisher`
+The publisher
 
-- establishes the MQTT connection
-- configures the MQTT Last Will
-- publishes encoded messages
-- disconnects gracefully
-- reports connection status
-- manages the MQTT transport session
+* establishes the MQTT session and registers the Last Will;
+* obtains the session's `bdSeq` and hands it to the encoder;
+* publishes `SparkplugPayload` objects exactly as given (topic, bytes, QoS, retain);
+* subscribes to the Node command topic (NCMD) and detects a Rebirth request;
+* recovers a lost session, lazily and with a cooldown, and requests a rebirth when it succeeds;
+* disconnects cleanly.
 
 The publisher never
 
-- reads sensors
-- acquires machine data
-- creates metrics
-- creates `DeviceData`
-- encodes Sparkplug messages
-- modifies application data
-- accesses databases
-- performs application-level processing
+* reads sources or creates metrics or `DeviceData`;
+* builds Sparkplug messages;
+* decides when to publish or how to react to a rebirth request;
+* stores data.
 
 ---
 
 ## Position in the Architecture
 
 ```text
-Source Devices
-      │
-      ▼
-  IConnector
-      │
-      ▼
-  DeviceData
-      │
-      ▼
-SparkplugEncoder
-      │
-      ▼
-SparkplugPayload
-      │
-      ▼
- MQTTPublisher
-      │
-      ▼
- MQTT Broker
+DeviceData ─► SparkplugEncoder ─► SparkplugPayload ─► Mqttpublisher ─► MQTT Broker
+                    ▲                                       │
+                    └──── Will payload, nodeCommandTopic ───┤
+                                                            ▼
+                                                  Rebirth request
+                                                  (atomic flag, read by
+                                                   Gatewayapplication)
 ```
-
-The publisher represents the transport boundary between the Industrial
-Edge Gateway and the MQTT Broker.
 
 ---
 
 ## Public Interface
 
 ```cpp
-class IMqttPublisher
+struct MQTTPublisherConfig
+{
+    std::string brokerAddress;                 // e.g. tcp://localhost:1883
+    std::string clientId;
+    std::string bdSeqFilePath = "bdseq.dat";
+};
+
+class Mqttpublisher : public virtual mqtt::callback
 {
 public:
+    Mqttpublisher(const MQTTPublisherConfig& config, SparkplugEncoder& encoder);
 
-    virtual ~IMqttPublisher() = default;
+    bool initialize();
+    bool publish(const SparkplugPayload& payload);
+    bool disconnect();
 
-    virtual bool connect(const SparkplugPayload& willMessage) = 0;
+    bool consumeRebirthRequest();
 
-    virtual void disconnect() = 0;
+    void message_arrived(mqtt::const_message_ptr msg) override;
+    void connection_lost(const std::string& lst) override;
 
-    virtual bool publish(const SparkplugPayload& payload) = 0;
-
-    virtual bool isConnected() const = 0;
+    bool connectSession();
 };
 ```
 
-The interface separates the Gateway application from the concrete MQTT
-client implementation.
+The publisher receives the encoder by reference because a session needs two
+things from it: the Last Will payload and the topic of the command
+subscription.
 
-It also allows the concrete MQTT implementation to be substituted without
-modifying the surrounding gateway architecture.
-
-This is useful, for example, for
-
-- testing `GatewayApplication` with a mock publisher;
-- replacing the underlying MQTT client library;
-- testing connection and publishing logic without requiring a live MQTT
-  broker.
+`connectSession()` is public in the header, but nothing outside `Mqttpublisher`
+calls it today — only `initialize()` and `publish()` do. It is therefore
+currently exposed as part of the public interface, although its use is
+internal to the publisher.
 
 ---
 
-## MQTTPublisher
+## Session Lifecycle
 
-```cpp
-class MQTTPublisher : public IMqttPublisher
-{
-public:
-
-    explicit MQTTPublisher(Configuration& configuration);
-
-    bool connect(const SparkplugPayload& willMessage) override;
-
-    void disconnect() override;
-
-    bool publish(const SparkplugPayload& payload) override;
-
-    bool isConnected() const override;
-
-private:
-
-    Configuration& configuration_;
-
-    bool connected_;
-
-    void configureWill(const SparkplugPayload& willMessage);
-
-    bool reconnect();
-};
-```
-
-The publisher receives its runtime configuration through dependency
-injection.
-
-The configuration contains MQTT connection parameters required by the
-Gateway.
-
----
-
-## Connection Lifecycle
-
-The MQTT Last Will must be configured before the MQTT connection is
-established.
-
-The `GatewayApplication` coordinates the startup sequence.
+Opening an MQTT session (at startup and after every reconnection) does the
+following:
 
 ```text
-GatewayApplication
+BdSeqManager.nextSessionBdSeq()      new session number (persisted file)
         │
         ▼
-SparkplugEncoder
-        │
-        │ encode(NDEATH)
-        ▼
-SparkplugPayload
-   (Last Will)
+encoder.setBdSeq(bdSeq)              Will and NBIRTH carry the same value; seq restarts at 0
         │
         ▼
-MQTTPublisher.connect()
+encoder.buildWillPayload()           NDEATH, ready to register
         │
         ▼
-   MQTT Broker
+CONNECT with Last Will               clean session; QoS and retain taken from the payload
         │
-        │ connection established
         ▼
-SparkplugEncoder
+BdSeqManager.commitSessionBdSeq()    value written back after a successful CONNECT
         │
-        │ encode(NBIRTH)
         ▼
-MQTTPublisher.publish()
+subscribe to NCMD topic (QoS 1)      encoder.nodeCommandTopic()
 ```
 
-The `SparkplugEncoder` creates the Sparkplug-specific NDEATH message.
-
-The `MQTTPublisher` registers this message as the MQTT Last Will during
-connection establishment.
-
-If the Gateway disconnects unexpectedly, the MQTT Broker automatically
-publishes the configured Last Will message.
+The Last Will must be registered before the connection is opened, which is why
+the NDEATH payload is built first. If the gateway disappears without a clean
+shutdown, the broker publishes it on its behalf. NBIRTH itself is published by
+the application after `initialize()`, not by the publisher. A failure to open
+the session at startup makes `initialize()` return `false`, and the gateway
+does not start.
 
 ---
 
 ## Publishing
 
-The publisher receives a fully encoded `SparkplugPayload`.
+`publish()` applies `topic`, `payload`, `qos` and `retain` of the
+`SparkplugPayload` unchanged. The QoS and retain values are decided by the
+encoder, per message type, so the publisher holds no Sparkplug rules.
 
-```cpp
-struct SparkplugPayload
-{
-    MqttTopic topic;
-    BinaryPayload payload;
-};
-```
+`publish()` is synchronous: it waits for the Paho delivery token before
+returning `true`, and returns `false` on any MQTT error.
 
-The publisher
-
-- does not interpret the topic
-- does not interpret the payload
-- does not modify the message
-- does not perform Sparkplug encoding
-
-It only transfers the provided topic and binary payload to the MQTT Broker.
-
-```text
-SparkplugPayload
-      │
-      ▼
-MQTTPublisher
-      │
-      │ MQTT transport
-      ▼
-MQTT Broker
-```
+**Recovery is lazy and happens inside `publish()`.** `connection_lost` only logs.
+When `publish()` finds the session down, it tries to reopen it, at most once per
+cooldown period (5 s, `reconnectCooldown`); within the cooldown it just returns
+`false`. If the reconnection succeeds, a **new Sparkplug session** has started
+(new `bdSeq`, new Last Will), so the publisher raises the rebirth flag itself
+and still returns `false` for the message that triggered the attempt, which is
+dropped. On the next `pollOnce()` the application consumes the flag and
+republishes NBIRTH and every DBIRTH, exactly as for an NCMD rebirth.
 
 ---
 
-## Separation of Responsibilities
+## Receiving Node Commands
 
-The boundary between Sparkplug encoding and MQTT transport is explicit.
+The Paho callback thread and the gateway's main thread must not share
+application state. The publisher therefore keeps the interaction minimal:
 
 ```text
-SparkplugEncoder
-──────────────────────────────
-Sparkplug knowledge
-- Sparkplug topics
-- Sparkplug message types
-- Sparkplug metrics
-- Protobuf payload
-- seq
-- bdSeq
-- NDEATH content
-
-            │
-            ▼
-
-SparkplugPayload
-
-            │
-            ▼
-
-MQTTPublisher
-──────────────────────────────
-MQTT knowledge
-- broker connection
-- MQTT session
-- Last Will registration
-- publication
-- connection status
-- reconnect handling
+Paho thread                                  main thread
+message_arrived(NCMD)                        pollOnce()
+   │ "Node Control/Rebirth" = true              │
+   ▼                                            ▼
+rebirthRequested_ (std::atomic<bool>) ──► consumeRebirthRequest()
 ```
 
-Neither component performs the other's responsibilities.
+`consumeRebirthRequest()` returns `true` when a rebirth is pending and clears
+the flag. An `std::atomic<bool>` is a state flag, not a queue: multiple requests
+arriving before the flag is consumed collapse into a single pending rebirth.
+The same flag is raised after a successful reconnection. What to do about it is
+`Gatewayapplication`'s decision. No mutex is shared between the two threads.
+
+An incoming payload that cannot be decoded is logged and ignored. The
+subscription is QoS 1, while a Host publishes NCMD with QoS 0 as the
+specification requires; the two values are independent.
+
+---
+
+## Shutdown
+
+`disconnect()` closes the session cleanly. With MQTT 3.1.1 a clean DISCONNECT
+makes the broker discard the Last Will, so the application publishes the NDEATH
+itself just before calling it.
+
+---
+
+## Security
+
+The current setup uses a local Mosquitto broker without authentication or TLS.
+Credentials and certificates will only need to be passed to the Paho
+connection options when the secured broker of the Smart Factory is used;
+access control lists and TLS termination stay on the broker side.
 
 ---
 
 ## Design Principles
 
-### Single Responsibility Principle
+* Single Responsibility: MQTT session and transport.
+* Sparkplug rules stay in the encoder; the publisher applies what it is given.
+* No shared mutable state across threads beyond one atomic flag.
+* Recovery with a cooldown instead of tight retry loops.
 
-The `MQTTPublisher` is responsible only for MQTT transport.
+---
 
-### Transport Abstraction
+## Known Limitations
 
-The `IMqttPublisher` interface separates the Gateway application from the
-concrete MQTT implementation.
-
-The abstraction is justified by concrete testing and implementation
-substitution requirements rather than by abstraction alone.
-
-### Dependency Injection
-
-The publisher receives its runtime configuration through its constructor.
-
-### Protocol Separation
-
-Sparkplug message creation is handled by the `SparkplugEncoder`.
-
-MQTT transmission is handled by the `MQTTPublisher`.
-
-### Hardware Independence
-
-The publisher has no knowledge of sensors, PLCs, robots or other source
-devices.
-
-### No Application Logic
-
-The publisher does not process measurements or make application-level
-decisions.
+* There is no `IMqttPublisher` interface. `Gatewayapplication` holds the concrete `Mqttpublisher`, so it cannot be substituted by a mock in unit tests.
+* After a reconnection, the births are published on the next poll cycle, not immediately. `publish()` calls made later in the same cycle succeed on the new session, so the DDATA of a second device can be sent before the NBIRTH. Stopping the cycle as soon as a rebirth is pending would close this window.
+* The message that triggers a reconnection is dropped; a lost DDATA is sent again once the rebirth is done, because the known state did not advance.
+* The reconnection cooldown is a compile-time constant.
 
 ---
 
 ## Future Extensions
 
-Future versions may support
-
-- automatic reconnect
-- username/password authentication
-- certificate-based authentication
-- configurable QoS
-- retained messages
-- asynchronous publishing
-- MQTT session configuration
-
-These features can be added without changing the responsibilities of the
-Gateway's data acquisition and encoding layers.
-
----
-
-## Summary
-
-The `MQTTPublisher` forms the MQTT transport layer of the Industrial Edge
-Gateway.
-
-It receives already encoded `SparkplugPayload` objects and transports them
-to the MQTT Broker without interpreting their contents.
-
-```text
-DeviceData
-    │
-    ▼
-SparkplugEncoder
-    │
-    ▼
-SparkplugPayload
-    │
-    ▼
-MQTTPublisher
-    │
-    ▼
-MQTT Broker
-```
-
-The central architectural rule is:
-
-The `SparkplugEncoder` defines what the message means;
-the `MQTTPublisher` defines how the message is transported.
+* Username/password and certificate-based authentication.
+* TLS connection to the secured Smart Factory broker.
+* Configurable cooldown and QoS.
+* An `IMqttPublisher` interface to make the application testable without a broker.
