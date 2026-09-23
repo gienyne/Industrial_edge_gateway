@@ -144,11 +144,28 @@ The Paho callback thread and the gateway's main thread must not share
 application state. The publisher therefore keeps the interaction minimal:
 
 ```text
-Paho thread                                  main thread
-message_arrived(NCMD)                        pollOnce()
-   │ "Node Control/Rebirth" = true              │
-   ▼                                            ▼
-rebirthRequested_ (std::atomic<bool>) ──► consumeRebirthRequest()
+
+        Paho callback thread                    Gateway main thread
+                 │                                      │
+                 │  NCMD: Rebirth = true                │
+                 ▼                                      │
+        message_arrived()                               │
+                 │                                      │
+                 ▼                                      │
+      rebirthRequested_ = true                          │
+                 │                                      │
+                 │                                      │
+                 │                         pollOnce()   │
+                 │                                      ▼
+                 │                         consumeRebirthRequest()
+                 │                                      │
+                 │                                      ▼
+                 │                            rebirth requested
+                 │                                      │
+                 │                                      ▼
+                 │                            publish NBIRTH
+                 │                            publish DBIRTH
+
 ```
 
 `consumeRebirthRequest()` returns `true` when a rebirth is pending and clears
