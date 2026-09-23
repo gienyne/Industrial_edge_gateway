@@ -2,113 +2,132 @@
 
 ## Overview
 
-This directory contains the architectural documentation of the Industrial Edge
-Gateway.
+This directory documents the architecture of the Industrial Edge Gateway.
 
 The gateway follows a modular architecture based on separation of
 responsibilities, dependency injection and programming to interfaces.
 
-The architecture separates source-device data acquisition from the central
-gateway processing pipeline.
+Source devices and industrial systems acquire their own data through
+whichever means fit their protocol. The gateway receives that data through
+dedicated connectors, converts it into a common internal representation, and
+publishes the result as standardized Sparkplug B messages over MQTT.
 
-Source devices acquire their own data and transmit it through a raw transport
-interface. The Industrial Edge Gateway receives this data through dedicated
-connectors, converts it into a common internal representation and publishes
-the resulting data using standardized communication protocols.
-
-This separation allows different source devices and industrial interfaces to
-be integrated without coupling the gateway core to a specific hardware or
-communication protocol.
+This separation lets different source devices and industrial interfaces be
+integrated without coupling the gateway core to a specific protocol.
 
 ---
 
 ## Architectural Boundary
 
-The architecture is divided into two main areas.
+The architecture is divided into two independent areas: source devices, and
+the gateway. Each acquisition path stays independent end to end — they only
+meet inside the gateway, once both have produced a `Metric`.
 
-<p align="center">
-  <a href="https://github.com/gienyne/Industrial_edge_gateway/blob/main/docs/images/Architectural_Boundary.jpg">
-    <img
-      src="../images/Architectural_Boundary.jpg"
-      width="600"
-      alt="Edge Architecture">
-  </a>
-</p>
+```text
+         SOURCE DEVICES                              GATEWAY
+
+  ESP32 / sensors                            ESP32Connector
+  (DHT11, shock, light, button)              (subscribes to raw/+)
+        │                                            ▲
+        │ SensorConnector                            │ MQTT / JSON
+        ▼                                            │
+  raw/<deviceId>  ───────────────────────────────────┘
+  (MQTT / JSON)
 
 
-The exact raw transport between source devices and the gateway is intentionally
-kept independent from the gateway's internal data model.
+  Industrial machine                         OpcUaConnector
+  (e.g. AquaControl / CODESYS)   ───────────► (direct OPC UA session,
+                                                SignAndEncrypt)
 
-The concrete transport mechanism will be defined when the corresponding
-source connector is implemented.
+
+                                                     │
+                                             both converge as
+                                                     ▼
+                                                   Metric
+                                                     │
+                                                     ▼
+                                                 DeviceData
+                                                     │
+                                                     ▼
+                                              SparkplugEncoder
+                                                     │
+                                                     ▼
+                                              SparkplugPayload
+                                                     │
+                                                     ▼
+                                               Mqttpublisher
+                                                     │
+                                                     ▼
+                                                MQTT Broker
+```
+
+The ESP32 path and the OPC UA path do not share a transport: one is MQTT/JSON
+on `raw/<deviceId>`, the other a direct OPC UA session. The gateway does not
+require either to look like the other — both are simply expected to produce a
+`Metric` on their own side of the boundary. See `gateway_connectors.md` for
+the detail of each connector.
 
 ---
 
 ## Source Devices
 
-Source devices are responsible for acquiring data from their local hardware.
+A source device acquires data from its own hardware or protocol and is
+responsible for nothing beyond that.
 
-For example, an ESP32 may contain several physical sensors.
+For the ESP32, a hardware abstraction layer sits before the raw transport:
 
 ```text
 ESP32
  ├── DHT11Sensor
  ├── ShockSensor
- └── LightSensor
+ ├── LightSensor
+ └── ButtonSensor      (not every board carries every sensor)
 ```
 
-The source device converts its hardware-specific measurements into a form
-suitable for transmission to the Industrial Edge Gateway.
+A source device never creates a `Metric` or a `DeviceData`, and never encodes
+a Sparkplug message. The ESP32-specific layers (`ISensor`, `SensorConnector`)
+are documented in `sensor_layer.md` and `sensor_connector.md`.
 
-The source device does not implement the central gateway data processing
-pipeline.
-
-In particular, source devices do not need to create the gateway's
-`DeviceData` model or encode Sparkplug B messages.
+Not every source needs this layer: AquaControl (OPC UA) exposes its process
+variables directly, with no sensor abstraction on the gateway's side of the
+boundary — `OpcUaConnector` reads a node value and turns it directly into a
+`Metric`.
 
 ---
 
 ## Gateway Connectors
 
-The Industrial Edge Gateway uses connectors to integrate different types of
-source devices and industrial interfaces.
-
-Examples include:
-
-- ESP32Connector
-- OPCUAConnector
-- ModbusConnector
-- RESTConnector
-
-Each connector is responsible for understanding its source-specific
-communication mechanism and transforming the received data into the
-gateway's common internal representation.
+The gateway integrates different sources through connectors implementing a
+single interface, `IConnector`. Each connector represents one **protocol**,
+not one machine — one instance can serve several devices.
 
 ```text
 Source-specific data
         │
         ▼
-    Connector
+     Connector            (implements IConnector)
         │
         ▼
-      Metric
+       Metric
         │
         ▼
-   DeviceData
+    DeviceData
 ```
 
-The gateway core therefore does not need to know whether data originated from
-an ESP32, an OPC UA server, a Modbus device or another source.
-
-See `gateway-connectors.md` for the connector interface, its semantics and
-the current and planned implementations.
+Currently implemented: `ESP32Connector` (MQTT/JSON) and `OpcUaConnector`
+(OPC UA). The gateway core does not need to know which one produced a given
+`DeviceData`. Whether that `DeviceData` changes anything visible (a DDATA) or
+nothing at all (unchanged metrics under Report-By-Exception) is decided by
+`Gatewayapplication`, not by the connector — a connector always reports the
+current state, never a delta. See `gateway_connectors.md` for the interface,
+both implementations, and how failures are handled.
 
 ---
 
 ## Common Internal Data Model
 
-The gateway uses a common internal data model as the contract between source
-integration and gateway processing.
+`Metric` and `DeviceData` are the contract between source integration and
+gateway processing; everything downstream of them is source-independent.
 
 ```text
 Metric
@@ -117,251 +136,125 @@ Metric
 DeviceData
 ```
 
-`Metric` represents one standardized measurement.
-
-`DeviceData` groups the metrics belonging to one physical device.
-
-Each connector produces its own `DeviceData`.
-
-Different devices are processed independently and are not implicitly merged
-into a single device representation.
-
-The ownership of the main data models is defined as follows:
-
-| Model               | Ownership            |
-|----------------------|-----------------------|
-| `SensorReading`       | Source-specific       |
-| `Metric`              | Gateway internal      |
-| `DeviceData`          | Gateway internal      |
-| `SparkplugPayload`    | Gateway communication |
-
-This separation prevents source-specific models from leaking into the gateway
-core.
+`Metric` is one standardized measurement. `DeviceData` groups the metrics of
+one physical device. Each connector produces its own `DeviceData` objects;
+different devices are never merged. See `data_models.md` for every structure,
+who owns each one, and how a value's representation changes as it crosses
+the pipeline.
 
 ---
 
 ## Sparkplug and MQTT
 
-Sparkplug B is implemented as a communication layer of the Industrial Edge
-Gateway.
+Sparkplug B is produced centrally by the gateway; no source implements it.
 
-```text
-DeviceData
-     │
-     ▼
-SparkplugEncoder
-     │
-     ▼
-SparkplugPayload
-     │
-     ▼
-MQTTPublisher
-     │
-     ▼
-MQTT Broker
-```
+`SparkplugEncoder` owns the Sparkplug representation, including topics,
+Protobuf payloads, `seq` and `bdSeq`. `Mqttpublisher` owns the MQTT session
+and transport.
 
-The `SparkplugEncoder` is responsible for Sparkplug-specific processing,
-including topic construction, payload encoding and sequence management.
-
-The `MQTTPublisher` is responsible only for MQTT transport.
-
-This keeps Sparkplug knowledge separate from the underlying MQTT client
-implementation.
+See `sparkplug_encoder.md` and `mqtt_publisher.md` for the details of each.
 
 ---
 
 ## Configuration
 
-Configuration is a cross-cutting gateway service shared by components that
-require gateway-level settings.
+All gateway and connector settings live in one JSON file, loaded once at
+startup by `ConfigLoader` and parsed into one typed structure per owning
+component — there is no single global configuration object.
 
 ```text
-                 Configuration
-                       │
-          ┌────────────┼────────────┐
-          ▼            ▼            ▼
-     Connectors   SparkplugEncoder  MQTTPublisher
+config/config.json
+        │
+        ▼
+   ConfigLoader
+        │
+   ┌────┼──────────────────────┐
+   ▼    ▼                      ▼
+GatewayApplicationConfig  ESP32ConnectorConfig  OpcUaConnectorConfig
 ```
 
-Gateway configuration is independent from the local configuration of source
-devices.
-
-Source-specific parameters remain outside the global gateway configuration
-model.
-
-See `configuration.md` for the detailed configuration model.
+Gateway configuration and source-device configuration (the ESP32's own
+`Config.h`) are independent; changing one never requires touching the other.
+See `configuration.md`.
 
 ---
 
 ## Application Composition
 
-`GatewayApplication` acts as the composition root of the Industrial Edge
-Gateway.
-
-It creates and connects the major gateway components through dependency
-injection.
-
-Conceptually:
+`main.cpp` is the composition root: it loads the configuration, creates the
+connectors, and builds `Gatewayapplication`. `Gatewayapplication` itself is
+the runtime orchestrator — it owns the Sparkplug pipeline and drives the
+Sparkplug lifecycle (birth, data, rebirth, death), but it does not construct
+itself or decide what exists in the object graph.
 
 ```text
-GatewayApplication
-        │
-        ├── Configuration
-        │
-        ├── IConnector
-        │      ├── ESP32Connector
-        │      ├── OPCUAConnector
-        │      └── ModbusConnector
-        │
-        ├── ISparkplugEncoder
-        │
-        └── IMqttPublisher
+main.cpp                          Gatewayapplication
+(composition root)                (runtime orchestrator)
+     │                                    │
+     ├── ConfigLoader                     ├── connectors_     (IConnector)
+     ├── ESP32Connector      ────inject───┤
+     ├── OpcUaConnector      ────inject───┤
+     │                                    ├── encoder_        (SparkplugEncoder)
+     └── Gatewayapplication  ─────────────┴── publisher_      (Mqttpublisher)
 ```
 
-The application coordinates the lifecycle and execution flow without
-implementing source-specific acquisition logic or protocol encoding itself.
-
-See `gateway-application.md` for the detailed composition and lifecycle.
+Adding a new connector means one addition in `main.cpp` and one section in the
+configuration file; `Gatewayapplication` itself does not change. See
+`gateway_application.md` for the full lifecycle: discovery, birth, rebirth,
+Report-By-Exception and device timeout.
 
 ---
 
 ## Design Principles
 
-The architecture is based on the following principles.
-
-### Single Responsibility Principle
-
-Each component has one clearly defined responsibility.
-
-### Dependency Injection
-
-Dependencies are explicitly provided by the application composition root.
-
-### Programming to Interfaces
-
-Interfaces are used where concrete implementations need to be replaceable,
-for example for connectors, Sparkplug encoding and MQTT transport.
-
-### Common Internal Data Model
-
-Source-specific data is converted into a common gateway representation before
-entering the central processing pipeline.
-
-### Hardware Independence
-
-The gateway core does not depend on a specific source device or sensor.
-
-### Protocol Independence
-
-The gateway's internal data model is independent from MQTT, Sparkplug B,
-OPC UA, Modbus and other communication protocols.
-
-### Modular Design
-
-Individual components can evolve independently as long as their defined
-interfaces remain stable.
-
-### Extensibility
-
-New source connectors and services can be integrated without modifying the
-core processing pipeline.
-
----
-
-## Data Flow
-
-The normal data flow through the architecture is:
-
-```text
-Source Device
-      │
-      │ Raw Transport
-      ▼
-Source Connector
-      │
-      ▼
-Metric
-      │
-      ▼
-DeviceData
-      │
-      ▼
-SparkplugEncoder
-      │
-      ▼
-SparkplugPayload
-      │
-      ▼
-MQTTPublisher
-      │
-      ▼
-MQTT Broker
-      │
-      ▼
-MQTT Clients
-```
-
-For each source device, the corresponding connector produces a separate
-`DeviceData` object.
-
-The gateway then processes and publishes that device data independently.
+* **Single Responsibility.** Each component has one clearly defined job.
+* **Dependency Injection.** Components receive what they need; nothing is looked up globally.
+* **Programming to Interfaces.** `IConnector` provides the common abstraction for source integrations.
+* **Common Internal Data Model.** Source-specific data becomes `Metric` and `DeviceData` before it reaches the central pipeline.
+* **Hardware and Protocol Independence.** The core knows neither sensor hardware nor MQTT/Sparkplug/OPC UA specifics outside the components whose job that is.
+* **Extensibility.** A new connector needs to produce `Metric` and `DeviceData`; the rest of the pipeline is unchanged.
 
 ---
 
 ## Documentation Structure
 
-| Document                 | Description                              |
-|---------------------------|-------------------------------------------|
-| `README.md`                | Architecture overview                      |
-| `data-models.md`           | Common internal data models                |
-| `configuration.md`         | Gateway configuration                      |
-| `sensor-layer.md`          | Source-device sensor abstraction           |
-| `sensor-connector.md`      | Source-device sensor aggregation           |
-| `gateway-connectors.md`    | Gateway connector abstraction and implementations |
-| `sparkplug-encoder.md`     | Sparkplug B encoding                       |
-| `mqtt-publisher.md`        | MQTT transport layer                       |
-| `gateway-application.md`   | Application composition and lifecycle      |
-| `adr/`                     | Architecture Decision Records              |
+| Document                 | Description                                      |
+| ------------------------ | ------------------------------------------------ |
+| `overview.md`            | This document                                    |
+| `data_models.md`         | The common internal data models                  |
+| `configuration.md`       | Gateway and connector configuration              |
+| `sensor_layer.md`        | ESP32 hardware abstraction (`ISensor`)           |
+| `sensor_connector.md`    | ESP32 sensor aggregation (`SensorConnector`)     |
+| `gateway_connectors.md`  | `IConnector`, `ESP32Connector`, `OpcUaConnector` |
+| `sparkplug_encoder.md`   | Sparkplug B encoding                             |
+| `mqtt_publisher.md`      | MQTT session and transport                       |
+| `gateway_application.md` | Composition root, orchestration, lifecycle       |
+| `adr/`                   | Architecture Decision Records                    |
 
 ---
 
 ## Recommended Reading Order
 
-For readers discovering the project for the first time, the following order is
-recommended:
-
-1. `README.md`
-2. `data-models.md`
-3. `overview.md`
-4. `sensor-layer.md`
-5. `sensor-connector.md`
-6. `gateway-connectors.md`
-7. `gateway-application.md`
-8. `configuration.md`
-9. `sparkplug-encoder.md`
-10. `mqtt-publisher.md`
-11. `adr/`
+1. `overview.md`
+2. `data_models.md`
+3. `sensor_layer.md`
+4. `sensor_connector.md`
+5. `gateway_connectors.md`
+6. `sparkplug_encoder.md`
+7. `mqtt_publisher.md`
+8. `gateway_application.md`
+9. `configuration.md`
+10. `adr/`
 
 ---
 
 ## Architectural Evolution
 
-The architecture is designed to evolve by introducing new source connectors
-and gateway components rather than modifying the central processing pipeline.
+The architecture is designed to evolve by adding source connectors and
+gateway components rather than modifying the central processing pipeline.
 
-Examples include:
-
-- additional source-device connectors;
-- OPC UA integration;
-- Modbus integration;
-- additional industrial communication protocols;
-- storage backends;
-- monitoring and diagnostics services;
-- web-based services.
-
-The common internal data model remains the stable contract between source
-integration and gateway processing.
-
-This allows the gateway to evolve without coupling the central architecture
-to individual machines or acquisition technologies.
+Candidates for the future include a `ModbusConnector`, a `RESTConnector`, a
+database ingestion service, a dashboard, and health monitoring of the
+gateway itself. None of these require a change to `Metric`, `DeviceData`, or
+the Sparkplug encoding and MQTT transport layers — the common internal data
+model is the stable contract that makes that possible.
