@@ -73,10 +73,10 @@ Adding a second OPC UA machine is one more object in `sources`; no code changes.
 ```text
 main.cpp
    │
-   ├─ config::loadFile("config/config.json")   ─► nlohmann::json root
-   ├─ config::parseEsp32Config(root)           ─► ESP32ConnectorConfig
-   ├─ config::parseOpcUaConfig(root)           ─► OpcUaConnectorConfig
-   └─ config::parseGatewayConfig(root)         ─► GatewayApplicationConfig
+   ├─ config::loadFile("config/config.json")   ─> nlohmann::json root
+   ├─ config::parseEsp32Config(root)           ─> ESP32ConnectorConfig
+   ├─ config::parseOpcUaConfig(root)           ─> OpcUaConnectorConfig
+   └─ config::parseGatewayConfig(root)         ─> GatewayApplicationConfig
 ```
 
 The path is relative to the working directory. A missing file, invalid JSON, a
