@@ -41,7 +41,7 @@ For a sensor-based source such as the ESP32, a source-specific layer exists
 before the boundary:
 
 ```text
-Sensor ─► SensorReading ─► SourceData ─► JSON on raw/<deviceId> ═► ESP32Connector ─► Metric
+Sensor ─> SensorReading ─> SourceData ─> JSON on raw/<deviceId> ═> ESP32Connector ─-> Metric
 ```
 
 An OPC UA source has no such layer: the `OpcUaConnector` turns a node value
@@ -59,15 +59,38 @@ sensor. It is a tagged union: `type` says which member of `data` is valid.
 ```cpp
 enum class SensorType { DHT11, SHOCK, LIGHT, BUTTON };
 
-struct DHT11Reading   { float temperature; float humidity; unsigned long timestamp; };
-struct ShockReading   { bool detected;                      unsigned long timestamp; };
-struct LightReading   { int intensity;                      unsigned long timestamp; };
-struct ButtonReading  { bool pressed;                       unsigned long timestamp; };
+struct DHT11Reading {
+float temperature;
+float humidity;
+unsigned long timestamp;
+};
 
-union SensorReadingData { DHT11Reading dht11; ShockReading shock;
-                          LightReading light; ButtonReading button; };
+struct ShockReading {
+bool detected;
+unsigned long timestamp;
+};
 
-struct SensorReading { SensorType type; SensorReadingData data; };
+struct LightReading {
+int intensity;
+unsigned long timestamp;
+};
+
+struct ButtonReading {
+bool pressed;
+unsigned long timestamp;
+};
+
+union SensorReadingData {
+DHT11Reading dht11;
+ShockReading shock;
+LightReading light;
+ButtonReading button;
+};
+
+struct SensorReading {
+SensorType type;
+SensorReadingData data;
+};
 ```
 
 The `timestamp` fields are `millis()`: time since the board booted, not a date.
@@ -86,9 +109,9 @@ payload:  {
             "timestamp": 84213,
             "readings": [
               { "type": "DHT11",  "temperature": 23.6, "humidity": 53.0, "timestamp": 84210 },
-              { "type": "SHOCK",  "detected": false,                    "timestamp": 84211 },
-              { "type": "LIGHT",  "intensity": 592,                     "timestamp": 84212 },
-              { "type": "BUTTON", "pressed": false,                     "timestamp": 84212 }
+              { "type": "SHOCK",  "detected": false, "timestamp": 84211 },
+              { "type": "LIGHT",  "intensity": 592, "timestamp": 84212 },
+              { "type": "BUTTON", "pressed": false, "timestamp": 84212 }
             ]
           }
 ```
@@ -120,9 +143,9 @@ struct Metric
 
 Metrics produced by the current connectors:
 
-| Source                          | Metrics (type)                                                                              |
+| Source                          | Metrics (type)                                                                               |
 |---------------------------------|----------------------------------------------------------------------------------------------|
-| ESP32 (DHT11)                   | `temperature` (Double, C), `humidity` (Double, %)                                                  |
+| ESP32 (DHT11)                   | `temperature` (Double, C), `humidity` (Double, %)                                            |
 | ESP32 (shock, light, button)    | `shockDetected` (Boolean), `lightIntensity` (Integer), `buttonPressed` (Boolean)             |
 | ESP32 (every payload)           | `uptimeMs` (Integer, ms)                                                                     |
 | OPC UA `aquacontrol-opcua`      | `tankLevel` (Double, L), `pumpActive` (Boolean), `valveActive` (Boolean), `waterConsumption` (Double, L), `rainSimActive` (Boolean) |
