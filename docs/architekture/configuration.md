@@ -148,7 +148,6 @@ Config.h  (firmware)                   config/config.json
 * One configuration structure per owning component.
 * Dependency injection: structures are passed in, never fetched globally.
 * Fail fast on invalid configuration.
-* Secrets outside the source code and outside Git.
 * Gateway and source-device configuration are independent.
 
 ---
@@ -156,6 +155,5 @@ Config.h  (firmware)                   config/config.json
 ## Future Extensions
 
 * Value validation (ranges, non-empty identifiers) after parsing.
-* Overriding secrets with environment variables or Docker secrets.
 * Per-source timeouts and polling intervals.
 * Reloading the configuration without restarting.
