@@ -90,7 +90,7 @@ are documented in `sensor_layer.md` and `sensor_connector.md`.
 
 Not every source needs this layer: AquaControl (OPC UA) exposes its process
 variables directly, with no sensor abstraction on the gateway's side of the
-boundary — `OpcUaConnector` reads a node value and turns it directly into a
+boundary. `OpcUaConnector` reads a node value and turns it directly into a
 `Metric`.
 
 ---
@@ -99,7 +99,7 @@ boundary — `OpcUaConnector` reads a node value and turns it directly into a
 
 The gateway integrates different sources through connectors implementing a
 single interface, `IConnector`. Each connector represents one **protocol**,
-not one machine — one instance can serve several devices.
+not one machine and one instance can serve several devices.
 
 ```text
 Source-specific data
@@ -160,7 +160,7 @@ See `sparkplug_encoder.md` and `mqtt_publisher.md` for the details of each.
 
 All gateway and connector settings live in one JSON file, loaded once at
 startup by `ConfigLoader` and parsed into one typed structure per owning
-component — there is no single global configuration object.
+component. There is no single global configuration object.
 
 ```text
 config/config.json
@@ -183,7 +183,7 @@ See `configuration.md`.
 
 `main.cpp` is the composition root: it loads the configuration, creates the
 connectors, and builds `Gatewayapplication`. `Gatewayapplication` itself is
-the runtime orchestrator — it owns the Sparkplug pipeline and drives the
+the runtime orchestrator. It owns the Sparkplug pipeline and drives the
 Sparkplug lifecycle (birth, data, rebirth, death), but it does not construct
 itself or decide what exists in the object graph.
 
@@ -256,5 +256,5 @@ gateway components rather than modifying the central processing pipeline.
 Candidates for the future include a `ModbusConnector`, a `RESTConnector`, a
 database ingestion service, a dashboard, and health monitoring of the
 gateway itself. None of these require a change to `Metric`, `DeviceData`, or
-the Sparkplug encoding and MQTT transport layers — the common internal data
+the Sparkplug encoding and MQTT transport layers. The common internal data
 model is the stable contract that makes that possible.
