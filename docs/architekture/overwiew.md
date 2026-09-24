@@ -20,7 +20,7 @@ integrated without coupling the gateway core to a specific protocol.
 ## Architectural Boundary
 
 The architecture is divided into two independent areas: source devices, and
-the gateway. Each acquisition path stays independent end to end — they only
+the gateway. Each acquisition path stays independent end to end , they only
 meet inside the gateway, once both have produced a `Metric`.
 
 ```text
