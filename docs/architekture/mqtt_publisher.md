@@ -190,7 +190,7 @@ specification requires; the two values are independent.
 
 ## Shutdown
 
-`disconnect()` closes the session cleanly. With MQTT 3.1.1 a clean DISCONNECT
+`disconnect()` closes the session cleanly. With MQTT a clean DISCONNECT
 makes the broker discard the Last Will, so the application publishes the NDEATH
 itself just before calling it.
 
@@ -218,7 +218,6 @@ access control lists and TLS termination stay on the broker side.
 
 * There is no `IMqttPublisher` interface. `Gatewayapplication` holds the concrete `Mqttpublisher`, so it cannot be substituted by a mock in unit tests.
 * After a reconnection, the births are published on the next poll cycle, not immediately. `publish()` calls made later in the same cycle succeed on the new session, so the DDATA of a second device can be sent before the NBIRTH. Stopping the cycle as soon as a rebirth is pending would close this window.
-* The message that triggers a reconnection is dropped; a lost DDATA is sent again once the rebirth is done, because the known state did not advance.
 * The reconnection cooldown is a compile-time constant.
 
 ---
