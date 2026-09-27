@@ -84,7 +84,7 @@ class Gatewayapplication
          * establishes the MQTT connection and publishes the initial  Sparkplug birth sequence.
          * 
          * @return true if initialization succeeds.
-         * @return false if an initialization fails.
+         * @return false if the MQTT connection or the initial birth sequence fails
          */
         bool initialize();
 
@@ -121,7 +121,8 @@ class Gatewayapplication
         // Devices for which a DBIRTH has been published. Used to detect newly discovered devices.
         std::set<std::string>birthedDevices_;
 
-        // Latest known state of each device. Used to detect metric changes before publishing DDATA.
+        // Latest known state of each device. Missing metrics are kept.
+        // Used to detect metric changes and build DBIRTH messages.
         std::map<std::string , DeviceData> lastKnownState_;
 
         // Time of the last data received from each device. 

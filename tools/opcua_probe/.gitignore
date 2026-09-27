@@ -1,0 +1,6 @@
+config/OpcUaSecrets.hpp
+
+gateway_cert.der
+gateway_key.pem
+# Build output
+build/

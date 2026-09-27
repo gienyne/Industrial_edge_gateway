@@ -1,0 +1,8 @@
+{
+    "endpoint": "opc.tcp://127.0.0.1:4840",
+    "deviceId": "aquacontrol-opcua",
+    "username": "YOUR_USERNAME",
+    "password": "YOUR_PASSWORD",
+    "certificatePath": "../../../gateway/certs/gateway_cert.der",
+    "privateKeyPath": "../../../gateway/certs/gateway_key.pem"
+}

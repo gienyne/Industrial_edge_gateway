@@ -20,6 +20,9 @@ void setup() {
   Serial.println("industrial edge gateway");
   Serial.println("ESP32 is running");
 
+  Serial.print("ESP32 MAC address: ");
+  Serial.println(WiFi.macAddress());
+  
   if(connector.initialize()){
     Serial.println("SensorConnector initialized");
   }
