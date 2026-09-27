@@ -1,8 +1,15 @@
 #include "ESP32Connector.h"
+#include "TimeUtils.h"
 #include <nlohmann/json.hpp>
 #include <iostream>
 
 using json = nlohmann::json;
+
+namespace
+{
+    constexpr auto ReconnectCooldown = std::chrono::seconds(5);
+}
+
 
 ESP32Connector::ESP32Connector(const ESP32ConnectorConfig& config) : config_(config),
 mqttClient_(config.brokerAddress, config.deviceId)
@@ -10,25 +17,58 @@ mqttClient_(config.brokerAddress, config.deviceId)
 
 } 
 
+
+bool ESP32Connector::connectMqtt()
+{
+
+    try{
+
+        mqtt::connect_options connOpts;
+        connOpts.set_clean_session(true);
+
+        if(!mqttClient_.is_connected()){
+            mqttClient_.connect(connOpts)->wait();
+            std::cout << "[ESP32Connector] Connected to MQTT broker" << std::endl;
+        }
+
+        /**
+         * Subscribe after every successful connection attempt.
+         * 
+         * This is also necessary after reconnecting because the client
+         * uses a clean MQTT session.
+         */
+        mqttClient_.subscribe(config_.topicFilter, 0)->wait();
+
+        connected_ = true;
+
+        std::cout << "[ESP32Connector] Subscribed to " << config_.topicFilter << std::endl;
+
+        return true;
+    }
+    catch(const mqtt::exception& exc)
+    {
+        std::cerr << "[ESP32Connector] Connection or subscription failed: " << exc.what() << std::endl;
+        connected_ = false;
+        return false;
+    }
+
+}
+
 bool ESP32Connector::initialize()
 {
     // Register this connector as the callback handler for incoming MQTT messages.
     // Paho MQTT calls message_arrived() from its internal MQTT thread.
     mqttClient_.set_callback(*this);
 
-    mqtt::connect_options connOpts;
-    connOpts.set_clean_session(true);
+    /**
+     * An initial connection failure is not fatal for the Gateway.
+     * 
+     * The broker may simply be unavailable during Gateway startup.
+     * collectData() will retry the connection automatically.
+     */
+    connectMqtt();
 
-    try{
-        mqttClient_.connect(connOpts)->wait();
-        mqttClient_.subscribe(config_.topicFilter, 0)->wait();
-        return true;
-    }
-    catch (const mqtt::exception& exc)
-    {
-        std::cerr <<"ESP32Connector: MQTT error" << exc.what() << std::endl;
-        return false;
-    }
+    return true;
 }
 
 std::string ESP32Connector::extractDeviceId(const std::string& topic) const{
@@ -58,10 +98,28 @@ void ESP32Connector::message_arrived(mqtt::const_message_ptr msg){
 
 void ESP32Connector::connection_lost(const std::string& lst){
     std::cerr << "ESP32Connector: connection lost: " << lst << std::endl;
+    connected_ = false;
 }
 
 std::vector<DeviceData> ESP32Connector::collectData()
 {
+
+    // Attempt reconnection when the connection has been lost or
+    // was never established successfully.
+    if(!connected_ || !mqttClient_.is_connected()){
+
+        const auto now = std::chrono::steady_clock::now();
+
+        if(now - lastReconnectAttempt_ < ReconnectCooldown){
+            return{};
+        }
+
+        lastReconnectAttempt_ = now;
+
+        if(!connectMqtt()){
+            return {};
+        }
+    }
     std::map<std::string, std::string> payloadsToProcess;
 
     {
@@ -100,7 +158,7 @@ std::vector<DeviceData> ESP32Connector::collectData()
              */
             std::cerr << "ESP32Connector: invalid JSON from device '" << deviceId << "': " << exc.what() << std::endl;
 
-            DeviceData transportLivenessOnly{deviceId, {}, 0ULL};
+            DeviceData transportLivenessOnly{deviceId, {}, nowMillis()};
             result.push_back(transportLivenessOnly);
         }
         
@@ -120,14 +178,25 @@ DeviceData ESP32Connector::parsePayload(const std::string& deviceId, const std::
     // how a malformed message should affect the Gateway.
     json doc = json::parse(payload);
 
-    data.timestamp = doc.value("timestamp", 0ULL);
 
-    /**
-     * A syntactically valid JSON payload may still have an unexpected structure.
-     * In that case no exception is raised here; metrics simply remain empty 
-     * The Gateway can still use the received message as a liveness indication,
-     * but it currently does not update the device's known application state (lastKnownState_).
-     */
+    // Keep the ESP32 uptime as a diagnostic metric.
+    // A sudden decrease in this value indicates that the device likely rebooted.
+    // millis() represents elapsed time since the ESP32 booted.
+    unsigned long long uptimeMillis = doc.value("timestamp", 0ULL);
+    data.metrics.push_back(Metric{
+        "uptimeMs", MetricDataType::Integer, static_cast<int>(uptimeMillis), "ms", nowMillis()
+    });
+
+
+    // The ESP32 timestamp represents time since boot rather than Unix epoch time.
+    // The Gateway therefore assigns its own current wall-clock timestamp to DeviceData.
+    data.timestamp = nowMillis();
+
+   /**
+    * A valid JSON payload may not contain any readings.
+    * In that case, only the uptime metric is added.
+    * he Gateway uses it to update the device's known state.
+    */
     if(doc.contains("readings") && doc["readings"].is_array()){
 
         for(const auto& reading : doc["readings"]){
@@ -137,13 +206,13 @@ DeviceData ESP32Connector::parsePayload(const std::string& deviceId, const std::
             data.metrics.push_back(Metric{
                 "temperature", MetricDataType::Double,
                 reading.value("temperature", 0.0), "C",
-                reading.value("timestamp", 0ULL)
+                nowMillis()
             });
 
             data.metrics.push_back(Metric{
                 "humidity", MetricDataType::Double,
                 reading.value("humidity", 0.0), "%",
-                reading.value("timestamp", 0ULL)
+                nowMillis()
             });
         }
 
@@ -151,7 +220,7 @@ DeviceData ESP32Connector::parsePayload(const std::string& deviceId, const std::
             data.metrics.push_back(Metric{
                 "shockDetected", MetricDataType::Boolean,
                 reading.value("detected", false), "",
-                reading.value("timestamp", 0ULL)
+                nowMillis()
             });
         }
 
@@ -160,7 +229,7 @@ DeviceData ESP32Connector::parsePayload(const std::string& deviceId, const std::
             data.metrics.push_back(Metric{
                 "lightIntensity", MetricDataType::Integer,
                 reading.value("intensity", 0), "",
-                reading.value("timestamp", 0ULL)
+                nowMillis()
             });
         }
 
@@ -169,7 +238,7 @@ DeviceData ESP32Connector::parsePayload(const std::string& deviceId, const std::
             data.metrics.push_back({
                 "buttonPressed", MetricDataType::Boolean,
                 reading.value("pressed", false), "",
-                reading.value("timestamp", 0ULL)
+                nowMillis()
             });
         }
     }

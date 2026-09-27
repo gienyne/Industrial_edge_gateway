@@ -1,0 +1,16 @@
+{
+  "name": "industrial-edge-gateway",
+  "version": "0.1.0",
+  "builtin-baseline": "2273a28f34ce5aac8be50b3b6b44da7fc1722e06",
+  "dependencies": [
+    "paho-mqttpp3",
+    "nlohmann-json",
+    "protobuf",
+    {
+      "name": "open62541",
+      "default-features": false,
+      "features": ["mbedtls", "methodcalls", "subscriptions", "subscriptions-events"]
+    },
+    "open62541pp"
+  ]
+}

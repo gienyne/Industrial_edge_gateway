@@ -28,6 +28,7 @@ The listener:
 - decodes Sparkplug B Protobuf payloads;
 - displays readable metric and message information;
 - checks sequence number continuity for each Sparkplug node;
+- checks that every NBIRTH carries seq = 0
 - tracks devices declared through DBIRTH;
 - detects DDATA messages received before the corresponding DBIRTH.
 
@@ -145,8 +146,11 @@ def validate(info, payload) :
     node_key = f"{info['group']}/{info['edge_node_id']}"
     message_type = info["message_type"]
 
-    # NBIRTH starts a new Sparkplug node session.
+    # NBIRTH restarts the sequence and the device list (new session or rebirth)
     if message_type == "NBIRTH" :
+
+        if payload.seq != 0:
+            print(f" [!] NBIRTH seq should be 0, received {payload.seq}")
 
         _last_seq[node_key] = ( 
             payload.seq if payload.HasField("seq") 

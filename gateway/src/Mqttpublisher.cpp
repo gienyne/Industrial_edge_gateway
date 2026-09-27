@@ -13,17 +13,16 @@ Mqttpublisher::Mqttpublisher(const MQTTPublisherConfig& config, SparkplugEncoder
 
 }
 
-bool Mqttpublisher::initialize()
+bool Mqttpublisher::connectSession()
 {
 
-    mqttClient_.set_callback(*this);
-   
-    
-    encoder_.setBdSeq(bdSeqManager_.nextSessionBdSeq());
+    const auto bdSeq = bdSeqManager_.nextSessionBdSeq();
+
+    encoder_.setBdSeq(bdSeq);
+
 
     /**
      * The NDEATH message is used as the MQTT Last Will.
-     * 
      * If the gateway loses its MQTT connection unexpectedly,
      * the broker publishes this message automatically.
      */
@@ -38,29 +37,59 @@ bool Mqttpublisher::initialize()
     );
 
     mqtt::connect_options connOpts;
-
     connOpts.set_clean_session(true);
-
     connOpts.set_will_message(willMsg);
 
     try{
-
         mqttClient_.connect(connOpts)->wait();
-
+        bdSeqManager_.commitSessionBdSeq(bdSeq);
         mqttClient_.subscribe(encoder_.nodeCommandTopic(), /*qos=*/1)->wait();
-
         return true;
     }
     catch(const mqtt::exception& exc)
     {
-        std::cerr << "MQTTPublisher: connection error" << exc.what() << std::endl;
+        std::cerr << "MQTTPublisher: connection error " << exc.what() << std::endl;
         return false;
     }
 }
 
+
+
+bool Mqttpublisher::initialize()
+{
+    mqttClient_.set_callback(*this);
+    return connectSession();
+}
+
+
+
 bool Mqttpublisher::publish(const SparkplugPayload& payload)
 {
-    try {
+
+    if(!mqttClient_.is_connected()){
+
+        auto now =  std::chrono::steady_clock::now();
+
+        if(now - lastReconnectAttempt_ < reconnectCooldown){
+            return false;
+        }
+
+        lastReconnectAttempt_ = now;
+
+        std::cout << "MQTTPublisher: connection lost, attempting to reconnect..." << std::endl;
+
+        if(!connectSession()){
+            return false;
+        }
+
+        std::cout << "MQTTPublisher: reconnected, new Sparkplug session established - requesting rebirth" << std::endl;
+
+        rebirthRequested_.store(true);
+
+        return false;
+    }
+
+    try{
 
         /**
          * The payload is already completely prepared by the SparkplugEncoder. 
