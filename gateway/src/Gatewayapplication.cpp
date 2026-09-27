@@ -5,6 +5,36 @@
 #include <chrono>
 #include <iostream>
 
+namespace
+{
+
+    /**
+     * Updates the known device information with the received data.
+     * Existing metrics that are not in the received data are kept.
+     * This prevents a temporarily missing metric from being treated as new when it appears again.
+     */
+    void mergeInto(DeviceData& state, const DeviceData& incoming){
+
+        state.deviceId = incoming.deviceId;
+        state.timestamp = incoming.timestamp;
+
+        for(const auto& metric : incoming.metrics){
+            auto it = std::find_if(state.metrics.begin(), state.metrics.end(), [&metric](const Metric& m){
+                return m.name == metric.name;
+            });
+
+            if(it == state.metrics.end()){
+                state.metrics.push_back(metric);
+            }
+            else{
+                *it = metric;
+            }
+        }
+    }
+}
+
+
+
 Gatewayapplication::Gatewayapplication(const GatewayApplicationConfig& config, std::vector<std::unique_ptr<IConnector>> connectors) : config_(config), encoder_(config.encoderConfig), publisher_(config.mqttConfig, encoder_), connectors_(std::move(connectors))
 {
 
@@ -46,8 +76,8 @@ void Gatewayapplication::runDiscoveryWindow()
                     continue;
                 }
 
-                // Store the most recent valid state received during discovery.
-                lastKnownState_[data.deviceId] = data;
+                // Merge the received metrics into the device's known state.
+                mergeInto(lastKnownState_[data.deviceId], data);
 
             }
         }
@@ -108,7 +138,7 @@ bool Gatewayapplication::initialize()
     runDiscoveryWindow();
 
 
-    std::cout << "GatewApplication: " << lastKnownState_.size() << "device(s) discovered" << std::endl;
+    std::cout << "GatewayApplication: " << lastKnownState_.size() << "device(s) discovered" << std::endl;
 
     /**
      * The birth publication can be controlled independently from
@@ -138,11 +168,11 @@ void Gatewayapplication::pollOnce()
 
     if(publisher_.consumeRebirthRequest()){
         
-        std::cout << "GatewayApplication: NCMD Rebirth requested, republishing birth sequence" << std::endl;
+        std::cout << "GatewayApplication: Rebirth requested (NCMD or new MQTT session), republishing birth sequence" << std::endl;
 
         if(!publishBirthSequence()){
 
-            std::cerr << "GatewayApplication: rebirth sequence (NCMD-triggered) failed" << std::endl;
+            std::cerr << "GatewayApplication: rebirth sequence failed" << std::endl;
 
         }
 
@@ -221,7 +251,7 @@ void Gatewayapplication::pollOnce()
         for(const auto& data : batch){
 
             if(!data.metrics.empty()){
-                lastKnownState_[data.deviceId] = data;
+                mergeInto(lastKnownState_[data.deviceId], data);
             }
             
         }
@@ -316,7 +346,7 @@ void Gatewayapplication::handleDeviceData(const DeviceData& data)
         if(publisher_.publish(encoder_.encodeDeviceData(changed))){
             
             // Only update our known state after successful publication.
-            lastKnownState_[data.deviceId] = data;
+            mergeInto(lastKnownState_[data.deviceId], data);
 
         }
         else{
@@ -348,13 +378,6 @@ DeviceData Gatewayapplication::filterChangedMetrics(const DeviceData& previous, 
      * 
      *   - it did not exist in the previous state, or
      *   - its value is different from the previous value.
-     * 
-     * The first condition is a safety mechanism: if a metric is not present
-     * in the previous state, it is still included in the filtered result
-     * instead of being silently discarded.
-     * 
-     * Under normal operation, a new metric should already have been detected
-     * by hasNewMetric() and should have triggered a rebirth.
      */
     bool changed = (it == previous.metrics.end()) || !(it->value == metric.value);
 

@@ -115,8 +115,8 @@ class SparkplugEncoder : public IsparkplugEncoder
         /**
          * @brief Sequence number used for Sparkplug messages.
          * 
-         * The sequence number is advanced after each encoded message and
-         * wraps from 255 back to 0.
+         * The sequence number is advanced after each encoded message,
+         * wraps from 255 back to 0, and is reset to 0 by every NBIRTH.
          */
         std::uint8_t seq_;
 

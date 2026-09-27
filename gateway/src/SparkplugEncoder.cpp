@@ -147,6 +147,10 @@ void SparkplugEncoder::setBdSeq(std::uint64_t bdSeq)
 
 SparkplugPayload SparkplugEncoder::encodeNodeBirth()
 {
+
+    // Every NBIRTH starts at seq 0, also on a rebirth inside a session
+    seq_ = 0;
+    
     Payload payload;
     payload.set_timestamp(nowMillisUtc());
 

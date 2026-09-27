@@ -192,12 +192,11 @@ DeviceData ESP32Connector::parsePayload(const std::string& deviceId, const std::
     // The Gateway therefore assigns its own current wall-clock timestamp to DeviceData.
     data.timestamp = nowMillis();
 
-    /**
-     * A syntactically valid JSON payload may still have an unexpected structure.
-     * In that case no exception is raised here; metrics simply remain empty 
-     * The Gateway can still use the received message as a liveness indication,
-     * but it currently does not update the device's known application state (lastKnownState_).
-     */
+   /**
+    * A valid JSON payload may not contain any readings.
+    * In that case, only the uptime metric is added.
+    * he Gateway uses it to update the device's known state.
+    */
     if(doc.contains("readings") && doc["readings"].is_array()){
 
         for(const auto& reading : doc["readings"]){
