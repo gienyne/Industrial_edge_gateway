@@ -37,11 +37,12 @@ class OpcUaConnector : public IConnector {
          * @brief Initializes the configured OPC UA sources.
          * 
          * Loads the client certificates and private keys, creates the OPC UA
-         * clients, configures security and authentication, and establishes
-         * connections to the configured OPC UA servers.
+         * clients, configures security and authentication, and attempts to
+         * connect to the configured OPC UA servers.
          * 
-         * @return true if at least one OPC UA source was initialized successfully,
-         * false otherwise.
+         * Sources that are not available can be reconnected later by collectData().
+         * 
+         * @return true once all configured sources have been registered.
          */
         bool initialize() override;
 
@@ -96,7 +97,7 @@ class OpcUaConnector : public IConnector {
         // Configuration provided to the connector.
         OpcUaConnectorConfig config_;
 
-        // Runtime state of all successfully initialized OPC UA sources.
+        // Runtime state of all configured OPC UA sources.
         std::vector<Source> sources_;
 
         /**
