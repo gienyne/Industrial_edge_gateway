@@ -1,0 +1,32 @@
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: gateway-timescaledb
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - timescaledb-data:/var/lib/postgresql/data
+
+
+  adminer:
+    image: adminer:latest
+    container_name: gateway-adminer
+    restart: unless-stopped
+
+    ports:
+      - "8081:8080"
+
+    depends_on:
+      - timescaledb
+
+      
+volumes:
+  timescaledb-data:
