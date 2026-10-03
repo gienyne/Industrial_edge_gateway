@@ -3,7 +3,7 @@ package com.gienyne.industrialedgegateway.persistence.ingestion;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
-import org.eclipse.paho.client.mqttv3.MqttCallback;
+import org.eclipse.paho.client.mqttv3.MqttCallbackExtended;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
 
 
 @Component
-public class SparkplugMqttListener implements MqttCallback{
+public class SparkplugMqttListener implements MqttCallbackExtended{
 
     private static final Logger log = LoggerFactory.getLogger(SparkplugMqttListener.class);
 
@@ -38,7 +38,7 @@ public class SparkplugMqttListener implements MqttCallback{
     }
 
     @EventListener(ApplicationReadyEvent.class)
-    public void connectAndSubscribe() throws MqttException{
+    public void connect() throws MqttException{
 
         client = new MqttClient(brokerAddress, "persistence-service-ingestion", new MemoryPersistence());
 
@@ -46,14 +46,25 @@ public class SparkplugMqttListener implements MqttCallback{
 
         MqttConnectOptions options = new MqttConnectOptions();
         options.setCleanSession(true);
+        options.setAutomaticReconnect(true);
 
         client.connect(options);
 
-        client.subscribe(TOPIC_FILTER, 0);
-
-        log.info("Subscribed to {} on {}", TOPIC_FILTER, brokerAddress);
-
     }
+
+
+    @Override
+    public void connectComplete(boolean reconnect, String serverURI){
+
+        try{
+            client.subscribe(TOPIC_FILTER, 0);
+            log.info("{} to {} on {}", reconnect ? "Re-subscribed" : "Subscribed", TOPIC_FILTER, serverURI);
+        }
+        catch(MqttException e){
+            log.error("Failed to subscribe to {} after connect: {}", TOPIC_FILTER, e.getMessage(), e);
+        }
+    }
+
 
     @Override
     public void messageArrived(String topicString, MqttMessage message){
@@ -86,7 +97,7 @@ public class SparkplugMqttListener implements MqttCallback{
 
     @Override
     public void connectionLost(Throwable cause){
-        log.error("MQTT connection lost: {}", cause.getMessage(), cause);
+        log.error("MQTT connection lost, Paho will retry automatically: {}", cause.getMessage(), cause);
     }
 
     @Override
