@@ -69,6 +69,15 @@ void SparkplugEncoder::appendMetric(Payload& payload,  const Metric& metric, boo
         out->set_datatype(toSparkplugDataType(metric.datatype));
     }
 
+    if(!metric.unit.empty()){
+        Payload::PropertySet* properties = out->mutable_properties();
+        properties->add_keys("unit");
+
+        Payload::PropertyValue* unitValue = properties->add_values();
+        unitValue->set_type(toSparkplugDataType(MetricDataType::String));
+        unitValue->set_string_value(metric.unit);
+    }
+
     switch (metric.datatype)
     {
     case MetricDataType::Boolean: 
