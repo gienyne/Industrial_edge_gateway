@@ -58,7 +58,7 @@ public class Measurement {
     }
 
 
-    private static Measurement base(Instant time, String deviceId, String metricName, String datatype){
+    private static Measurement base(Instant time, String deviceId, String metricName, String datatype, String unit){
 
         Measurement m = new Measurement();
 
@@ -66,31 +66,32 @@ public class Measurement {
         m.deviceId = deviceId;
         m.metricName = metricName;
         m.datatype = datatype;
+        m.unit = unit;
 
         return m;
     }
 
 
-    public static Measurement ofBoolean(Instant time, String deviceId, String metricName, boolean value){
-        Measurement m = base(time, deviceId, metricName, "Boolean");
+    public static Measurement ofBoolean(Instant time, String deviceId, String metricName, String unit, boolean value){
+        Measurement m = base(time, deviceId, metricName, "Boolean", unit);
         m.valueBool = value;
         return m;
     }
 
-    public static Measurement ofInteger(Instant time, String deviceId, String metricName, int value){
-        Measurement m = base(time, deviceId, metricName, "Integer");
+    public static Measurement ofInteger(Instant time, String deviceId, String metricName, String unit, int value){
+        Measurement m = base(time, deviceId, metricName, "Integer", unit);
         m.valueInt = value;
         return m;
     }
 
-    public static Measurement ofDouble(Instant time, String deviceId, String metricName, double value){
-        Measurement m = base(time, deviceId, metricName, "Double");
+    public static Measurement ofDouble(Instant time, String deviceId, String metricName, String unit, double value){
+        Measurement m = base(time, deviceId, metricName, "Double", unit);
         m.valueDouble = value;
         return m;
     }
 
-    public static Measurement ofString(Instant time, String deviceId, String metricName, String value){
-        Measurement m = base(time, deviceId, metricName, "String");
+    public static Measurement ofString(Instant time, String deviceId, String metricName, String unit, String value){
+        Measurement m = base(time, deviceId, metricName, "String", unit);
         m.valueString = value;
         return m;
     }
