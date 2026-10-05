@@ -69,6 +69,7 @@ public class IngestionService{
 
             Instant time = Instant.ofEpochMilli(metric.getTimestamp());
             String name = metric.getName();
+            String unit = extractUnit(deviceId, metric);
 
             return switch (metric.getValueCase()){
 
@@ -76,6 +77,7 @@ public class IngestionService{
                     time,
                     deviceId,
                     name,
+                    unit,
                     metric.getBooleanValue()
                 );
 
@@ -83,6 +85,7 @@ public class IngestionService{
                     time,
                     deviceId,
                     name,
+                    unit,
                     metric.getIntValue()
                 );
 
@@ -90,6 +93,7 @@ public class IngestionService{
                     time,
                     deviceId,
                     name,
+                    unit,
                     metric.getDoubleValue()
                 );
 
@@ -97,6 +101,7 @@ public class IngestionService{
                     time,
                     deviceId,
                     name,
+                    unit,
                     metric.getStringValue()
                 );
 
@@ -112,6 +117,34 @@ public class IngestionService{
 
                 }
             };
+        }
+
+
+        private String extractUnit(String deviceId, Payload.Metric metric){
+
+            if(!metric.hasProperties()){
+                return null;
+            }
+
+            Payload.PropertySet properties = metric.getProperties();
+
+            for (int i = 0; i < properties.getKeysCount(); i++){
+
+                if ("unit".equals(properties.getKeys(i)) && i < properties.getValuesCount()){
+
+                    Payload.PropertyValue value = properties.getValues(i);
+
+                    if (value.hasStringValue()){
+                        return value.getStringValue();
+                    }
+
+                    log.warn("Unit property for metric '{}' on device '{}' is not a string",  metric.getName(), deviceId);
+
+                    return null;
+                }
+            }
+
+            return null;
         }
 
 }
