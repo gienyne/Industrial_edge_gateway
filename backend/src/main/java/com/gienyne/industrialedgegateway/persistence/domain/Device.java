@@ -3,6 +3,8 @@ package com.gienyne.industrialedgegateway.persistence.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
@@ -35,6 +37,9 @@ public class Device{
     @Column(name = "last_seen_at", nullable = false)
     private Instant lastSeenAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private EntityStatus status = EntityStatus.UNKNOWN;
 
     protected Device(){
         // required by JPA
@@ -73,5 +78,13 @@ public class Device{
 
     public Instant getLastSeenAt(){
         return lastSeenAt;
+    }
+
+    public EntityStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(EntityStatus status) {
+        this.status = status;
     }
 }

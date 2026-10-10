@@ -16,3 +16,7 @@ spring:
 gateway:
  mqtt:
   broker-address: tcp://localhost:1883
+ sparkplug:
+  group-id: SFM
+  edge-node-id: IndustrialEdgeGateway
+  sync-window-seconds: 15
