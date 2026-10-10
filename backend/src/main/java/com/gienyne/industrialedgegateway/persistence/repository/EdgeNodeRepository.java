@@ -1,25 +1,23 @@
 package com.gienyne.industrialedgegateway.persistence.repository;
 
 
-import com.gienyne.industrialedgegateway.persistence.domain.Device;
 import com.gienyne.industrialedgegateway.persistence.domain.EntityStatus;
+import com.gienyne.industrialedgegateway.persistence.domain.EdgeNode;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 
-import java.util.List;
+import java.util.Optional;
 
 
-public interface DeviceRepository extends JpaRepository<Device, String>{
-    
-    List<Device> findByGroupIdAndEdgeNodeId(String groupId, String edgeNodeId);
+public interface EdgeNodeRepository extends JpaRepository<EdgeNode, Long>{
 
-    long countByStatus(EntityStatus status);
+    Optional<EdgeNode> findByGroupIdAndEdgeNodeId(String groupId, String edgeNodeId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update Device d set d.status = :to where d.status = :from")
+    @Query("update EdgeNode n set n.status = :to where n.status = :from")
     int replaceStatus(@Param("from") EntityStatus from, @Param("to") EntityStatus to);
 
 }
