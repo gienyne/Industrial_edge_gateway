@@ -56,10 +56,27 @@ public class IngestionService{
 
         deviceRepository.save(device);
 
+        boolean isBirth = "DBIRTH".equals(topic.messageType());
+
         List<Measurement> measurements = payload.getMetricsList().stream().filter(
             metric -> !REBIRTH_METRIC_NAME.equals(metric.getName())).map(
             metric -> toMeasurement(topic.deviceId(), metric)).filter(
-            measurement -> measurement != null).toList();
+            measurement -> measurement != null).filter(
+                measurement -> {
+                    if(!isBirth){
+                        return true;
+                    }
+
+                    boolean alreadyExists = measurementRepository.existsByDeviceIdAndMetricNameAndTime(measurement.getDeviceId(), measurement.getMetricName(), measurement.getTime());
+
+                    if(alreadyExists){
+                        log.debug("Skipping duplicate {} measurement: device={}, metric={}, time={}",
+                        topic.messageType(), measurement.getDeviceId(), measurement.getMetricName(), measurement.getTime());
+                    }
+
+                    return !alreadyExists;
+
+                }).toList();
 
         measurementRepository.saveAll(measurements);
 
@@ -120,7 +137,7 @@ public class IngestionService{
         }
 
 
-        private String extractUnit(String deviceId, Payload.Metric metric){
+        String extractUnit(String deviceId, Payload.Metric metric){
 
             if(!metric.hasProperties()){
                 return null;
