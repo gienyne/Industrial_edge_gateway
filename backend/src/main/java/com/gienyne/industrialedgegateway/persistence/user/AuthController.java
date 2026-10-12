@@ -1,5 +1,8 @@
 package com.gienyne.industrialedgegateway.persistence.user;
 
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 
 import java.time.Instant;
 
@@ -36,12 +39,13 @@ public class AuthController{
 
     // Prepares the CSRF token before login.
     @GetMapping("/csrf")
-    public ResponseEntity<Void> csrf(CsrfToken csrfToken){
+    public ResponseEntity<Void> csrf(@Parameter(hidden = true) CsrfToken csrfToken){
         csrfToken.getToken();
         return ResponseEntity.noContent().build();
     }
 
 
+    @Operation(parameters = { @Parameter(name = "X-XSRF-TOKEN", in = ParameterIn.HEADER, required = true, description = "CSRF token from the XSRF-TOKEN cookie")})
     @PostMapping("/login")
     public ResponseEntity<?> login(
         @RequestBody(required = false) ApiLoginRequest body,

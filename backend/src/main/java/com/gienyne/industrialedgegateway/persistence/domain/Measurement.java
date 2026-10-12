@@ -121,4 +121,20 @@ public class Measurement {
         return unit;
     }
 
+    public Boolean getValueBool(){
+        return valueBool;
+    }
+
+    public Integer getValueInt(){
+        return valueInt;
+    }
+
+    public Double getValueDouble(){
+        return valueDouble;
+    }
+
+    public String getValueString(){
+        return valueString;
+    }
+
 }
