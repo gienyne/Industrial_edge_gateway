@@ -1,0 +1,1 @@
+CREATE INDEX idx_measurements_device_time ON measurements (device_id, time DESC);
