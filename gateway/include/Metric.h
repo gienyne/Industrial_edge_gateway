@@ -1,6 +1,7 @@
 #ifndef METRIC_H
 #define METRIC_H
 
+#include <cstdint>
 #include <string>
 #include <variant>
 
@@ -11,6 +12,7 @@ enum class MetricDataType
 {
     Boolean,
     Integer,
+    UInt32,
     Double,
     String
 };
@@ -24,7 +26,7 @@ struct Metric {
     MetricDataType datatype;
 
     // Stores the value of the metric.
-    std::variant<bool, int, double, std::string> value;
+    std::variant<bool, int, std::uint32_t, double, std::string> value;
 
     std::string unit;
     unsigned long long timestamp;

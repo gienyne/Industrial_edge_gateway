@@ -11,12 +11,12 @@ namespace
 
     /**
      * @brief Loads a binary file into an OPC UA ByteString.
-     * 
+     *
      * Used to load the client certificate and private key from disk.
-     * 
+     *
      * @param path Path to the binary file.
      * @return File contents as an OPC UA ByteString.
-     * 
+     *
      * @throws std::runtime_error If the file cannot be opened.
      */
     opcua::ByteString loadBinaryFile(const std::string& path)
@@ -32,8 +32,67 @@ namespace
         return opcua::ByteString(buffer.begin(), buffer.end());
     }
 
+    opcua::MessageSecurityMode parseSecurityMode(const std::string& mode){
+
+        if(mode == "None"){
+            return opcua::MessageSecurityMode::None;
+        }
+        if(mode == "Sign"){
+            return opcua::MessageSecurityMode::Sign;
+        }
+        if(mode == "SignAndEncrypt"){
+            return opcua::MessageSecurityMode::SignAndEncrypt;
+        }
+
+        throw std::runtime_error("Unsupported OPC UA security mode: " + mode);
+    }
+
     // Minimum delay between two consecutive reconnection attempts.
     constexpr auto ReconnectCooldown = std::chrono::seconds(5);
+
+
+    /**
+     * @brief Retrieves and prints the security configuration of the server endpoints.
+     *
+     * @param endpointUrl The URL of the OPC UA server.
+     */
+    void printEndpoints(const std::string& endpointUrl){
+
+        opcua::Client client;
+
+        const auto endpoints = client.getEndpoints(endpointUrl);
+
+        std::cout << "\n[OPC UA] Endpoints advertised by " << endpointUrl << '\n';
+
+        for(const auto& endpoint : endpoints){
+
+            // Print the endpoint URL.
+            std::cout << "  Endpoint URL : " << endpoint.endpointUrl() << '\n';
+
+            // Print the security policy URI supported by this endpoint.
+            std::cout << "  Security policy : " << endpoint.securityPolicyUri() << '\n';
+
+            // Print the message security mode as its numeric value.
+            std::cout << "  Security mode : " << static_cast<int>(endpoint.securityMode()) << '\n';
+
+            // Print the identity token policies supported by this endpoint
+            std::cout << "  User token policies :\n";
+
+            for(const auto& token : endpoint.userIdentityTokens()){
+
+                // Print the identity token type.
+                std::cout << "    Token type : " << static_cast<int>(token.tokenType()) << '\n';
+
+                // Print the security policy URI associated with the identity token.
+                std::cout << "    Token security policy : " << token.securityPolicyUri() << '\n';
+
+            }
+
+            std::cout << "-----------------------------------------\n";
+
+        }
+
+    }
 
 }
 
@@ -52,16 +111,43 @@ bool OpcUaConnector::connectSource(Source& source)
         source.certificate = loadBinaryFile(source.config.certificatePath);
         source.privateKey = loadBinaryFile((source.config.privateKeyPath));
 
+        try{
+            printEndpoints(source.config.endpoint);
+        }
+        catch(const std::exception& e){
+            std::cerr << "[OPC-UA] Endpoints discovery failed for" << source.config.deviceId  << ": " << e.what() << '\n';
+        }
+
         opcua::ClientConfig clientConfig(source.certificate, source.privateKey, {});
-        clientConfig.setSecurityMode(opcua::MessageSecurityMode::SignAndEncrypt);
 
         auto* rawConfig = clientConfig.handle();
+
+        std::cout << "[OPC-UA] Client security policies:" << std::endl;
+
+        for(size_t i = 0; i < rawConfig->securityPoliciesSize; ++i){
+
+            const UA_String& policyUri = rawConfig->securityPolicies[i].policyUri;
+            std::string uri(reinterpret_cast<const char*>(policyUri.data), policyUri.length);
+
+            std::cout << "  - " << uri << std::endl;
+        }
+
+        clientConfig.setSecurityMode(parseSecurityMode(source.config.securityMode));
+
+        std::cout << "[OPC-UA] Security mode for " << source.config.deviceId << ": " << source.config.securityMode << std::endl;
 
         UA_String_clear(&rawConfig->clientDescription.applicationUri);
 
         rawConfig->clientDescription.applicationUri = UA_STRING_ALLOC("urn:industrial-edge-gateway:opcua-probe");
 
-        clientConfig.setUserIdentityToken(opcua::UserNameIdentityToken{source.config.username, source.config.password});
+        if(!source.config.username.empty()){
+            clientConfig.setUserIdentityToken(opcua::UserNameIdentityToken{
+                source.config.username,
+                source.config.password
+            });
+        }
+
+        //clientConfig.setUserIdentityToken(opcua::UserNameIdentityToken{source.config.username, source.config.password});
 
         source.client = std::make_unique<opcua::Client>(std::move(clientConfig));
         source.client->connect(source.config.endpoint);
@@ -138,20 +224,39 @@ Metric OpcUaConnector::readMetric(OpcUaConnector::Source& source, const OpcUaMet
     auto variant = node.readValue();
 
     if(variant.empty()){
-        throw std::runtime_error("Node or value not found on the CODESYS server");
+        throw std::runtime_error("Node or value not found on the OPC UA server");
     }
 
     switch(metricConfig.dataType){
 
         case MetricDataType::Boolean:
 
+           if(!variant.isType<bool>()){
+            throw std::runtime_error("Expected Boolean");
+           }
            metric.value = variant.scalar<bool>();
            break;
 
+        case MetricDataType::Integer:
+
+           if(!variant.isType<std::int32_t>()){
+            throw std::runtime_error("Expected Int32");
+           }
+           metric.value = variant.scalar<int32_t>();
+           break;
+
+        case MetricDataType::UInt32:
+
+           if(!variant.isType<std::uint32_t>()){
+            throw std::runtime_error("Expected UInt32");
+           }
+           metric.value = variant.scalar<std::uint32_t>();
+           break;
+
         case MetricDataType::Double:
-           
+
            if(variant.isType<float>()){
-             metric.value =  static_cast<double>(variant.scalar<float>());
+             metric.value = static_cast<double>(variant.scalar<float>());
            }
            else if(variant.isType<double>()){
              metric.value = variant.scalar<double>();
@@ -165,12 +270,7 @@ Metric OpcUaConnector::readMetric(OpcUaConnector::Source& source, const OpcUaMet
 
            break;
 
-        case MetricDataType::Integer:
-            
-           metric.value = variant.scalar<int32_t>();
-           break;
 
-        
         case MetricDataType::String:
 
            metric.value = std::string(variant.scalar<opcua::String>());
@@ -201,7 +301,7 @@ std::vector<DeviceData> OpcUaConnector::collectData()
             if(!connectSource(source)){
                 continue;
             }
-           
+
         }
 
         try{
