@@ -7,7 +7,7 @@
 
 /**
  * @brief Configuration for a single OPC UA metric.
- * 
+ *
  * Defines which OPC UA node is read and how the resulting value
  * is represented as a generic Metric.
  */
@@ -20,7 +20,7 @@ struct OpcUaMetricConfig {
     std::string metricName;
 
     // Expected data type of the metric value.
-    MetricDataType dataType;   
+    MetricDataType dataType;
 
     // Unit associated with the metric value.
     std::string unit;
@@ -29,7 +29,7 @@ struct OpcUaMetricConfig {
 
 /**
  * @brief Configuration for a single OPC UA data source.
- * 
+ *
  * Contains the connection parameters and the list of metrics
  * to be collected from the OPC UA server.
  */
@@ -40,6 +40,8 @@ struct OpcUaSourceConfig {
 
     // Identifier used by the gateway to identify the source device.
     std::string deviceId;
+
+    std::string securityMode = "SignAndEncrypt";
 
     // Username used for OPC UA authentication.
     std::string username;
@@ -60,14 +62,14 @@ struct OpcUaSourceConfig {
 
 /**
  * @brief Configuration for the OPC UA connector.
- * 
+ *
  * Contains all OPC UA sources configured for the gateway.
  */
 struct OpcUaConnectorConfig {
 
     // List of OPC UA data sources handled by the connector.
     std::vector<OpcUaSourceConfig> sources;
-    
+
 };
 
 #endif

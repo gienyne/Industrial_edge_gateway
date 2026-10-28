@@ -1,7 +1,9 @@
 #include <atomic>
 #include <csignal>
 #include <chrono>
+#include <cstdlib>
 #include <iostream>
+#include <exception>
 #include <memory>
 #include <thread>
 #include <vector>
