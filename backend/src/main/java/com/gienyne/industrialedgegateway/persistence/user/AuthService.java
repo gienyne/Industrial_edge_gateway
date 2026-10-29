@@ -1,8 +1,13 @@
 package com.gienyne.industrialedgegateway.persistence.user;
 
 
+import com.gienyne.industrialedgegateway.persistence.user.domain.DashboardUser;
+import com.gienyne.industrialedgegateway.persistence.user.repository.DashboardUserRepository;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
+import java.nio.charset.StandardCharsets;
 
 
 import org.springframework.security.authentication.AuthenticationManager;
@@ -11,6 +16,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.context.SecurityContextHolderStrategy;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.security.web.authentication.session.ChangeSessionIdAuthenticationStrategy;
 import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
@@ -23,8 +29,15 @@ import org.springframework.stereotype.Service;
 @Service
 public class AuthService{
 
+    static final int MIN_PASSWORD_LENGTH = 8;
+
+    // BCrypt only uses the first 72 bytes of a password.
+    static final int MAX_PASSWORD_BYTES = 72;
+
     private final AuthenticationManager authenticationManager;
     private final CookieCsrfTokenRepository csrfTokenRepository;
+    private final DashboardUserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     // Manages the security information of the current user.
     private final SecurityContextHolderStrategy contextHolder = SecurityContextHolder.getContextHolderStrategy();
@@ -36,10 +49,12 @@ public class AuthService{
     private final SessionAuthenticationStrategy sessionStrategy = new ChangeSessionIdAuthenticationStrategy();
 
 
-    public AuthService(AuthenticationManager authenticationManager, CookieCsrfTokenRepository csrfTokenRepository){
+    public AuthService(AuthenticationManager authenticationManager, CookieCsrfTokenRepository csrfTokenRepository, DashboardUserRepository userRepository, PasswordEncoder passwordEncoder){
 
         this.authenticationManager = authenticationManager;
         this.csrfTokenRepository = csrfTokenRepository;
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
 
     }
 
@@ -75,6 +90,38 @@ public class AuthService{
         new SecurityContextLogoutHandler().logout(request, response, contextHolder.getContext().getAuthentication());
 
         csrfTokenRepository.saveToken(null, request, response);
+
+    }
+
+
+    // Replaces the password of the signed-in user after checking the current one.
+    public void changePassword(String userId, String currentPassword, String newPassword){
+
+        if(currentPassword == null || currentPassword.isBlank() || newPassword == null || newPassword.isBlank()){
+            throw new PasswordChangeException("The current and the new password are required");
+        }
+
+        if(newPassword.length() < MIN_PASSWORD_LENGTH){
+            throw new PasswordChangeException("The new password must have at least " + MIN_PASSWORD_LENGTH + " characters");
+        }
+
+        if(newPassword.getBytes(StandardCharsets.UTF_8).length > MAX_PASSWORD_BYTES){
+            throw new PasswordChangeException("The new password is too long. Please choose a shorter password.");
+        }
+
+        DashboardUser user = userRepository.findById(userId).orElseThrow(() -> new PasswordChangeException("The user was not found"));
+
+        if(!passwordEncoder.matches(currentPassword, user.getPasswordHash())){
+            throw new PasswordChangeException("The current password is incorrect");
+        }
+
+        if(passwordEncoder.matches(newPassword, user.getPasswordHash())){
+            throw new PasswordChangeException("The new password must be different from the current one");
+        }
+
+        user.changePasswordHash(passwordEncoder.encode(newPassword));
+
+        userRepository.save(user);
 
     }
 }

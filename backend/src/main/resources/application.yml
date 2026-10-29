@@ -1,4 +1,7 @@
 spring:
+  config:
+    import: "optional:file:.env[.properties]"
+    
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:gateway}
     username: ${DB_USER:gateway}
@@ -20,3 +23,6 @@ gateway:
   group-id: SFM
   edge-node-id: IndustrialEdgeGateway
   sync-window-seconds: 15
+ dashboard:
+  admin-user: ${DASHBOARD_ADMIN_USER:}
+  admin-password: ${DASHBOARD_ADMIN_PASSWORD:}

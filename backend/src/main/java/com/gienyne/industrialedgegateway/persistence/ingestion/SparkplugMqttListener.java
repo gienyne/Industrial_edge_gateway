@@ -100,6 +100,16 @@ public class SparkplugMqttListener implements MqttCallbackExtended{
         client.connect(options);
     }
 
+    
+    /**
+     * Returns whether the MQTT client is currently connected.
+     */
+    public boolean isConnected(){
+        
+        MqttClient current = client;
+
+        return current != null && current.isConnected();
+    }
 
 
     /**

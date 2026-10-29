@@ -18,7 +18,7 @@ public record ApiMeasurementResponse(Instant timestamp, String metricName, Strin
             case "Integer" -> measurement.getValueInt();
             case "Double"  -> measurement.getValueDouble();
             case "String"  -> measurement.getValueString();
-             default -> null;
+            default -> null;
         };
 
         return new ApiMeasurementResponse(measurement.getTime(), measurement.getMetricName(), measurement.getDatatype(), value, normalizeUnit(measurement.getUnit()));

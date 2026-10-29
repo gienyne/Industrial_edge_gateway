@@ -30,6 +30,18 @@ public class DashboardUser{
 
     }
 
+    public DashboardUser(String userId, String passwordHash){
+        this.userId = userId;
+        this.passwordHash = passwordHash;
+        this.active = true;
+        this.createdAt = Instant.now();
+    }
+
+    // Replaces the password. The new password must already be hashed
+    public void changePasswordHash(String newPasswordHash){
+        this.passwordHash = newPasswordHash;
+    }
+
     public String getUserId(){
         return userId;
     }

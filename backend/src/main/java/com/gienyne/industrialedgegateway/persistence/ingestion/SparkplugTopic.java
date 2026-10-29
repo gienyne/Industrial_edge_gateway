@@ -2,7 +2,7 @@ package com.gienyne.industrialedgegateway.persistence.ingestion;
 
 
 /**
- * Parsed Sparkplug B topic: spBv1.0/<group>/<messageType>/<edgeNode>/[deviceId]
+ * Parsed Sparkplug B topic: spBv3.0/<group>/<messageType>/<edgeNode>/[deviceId]
  * 
  * is null for Node-level messages (NBIRTH, NDEATH), which have no device segment
  */
