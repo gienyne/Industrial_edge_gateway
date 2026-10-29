@@ -1,5 +1,6 @@
 package com.gienyne.industrialedgegateway.persistence.repository;
 
+import java.util.List;
 
 import com.gienyne.industrialedgegateway.persistence.domain.Device;
 import com.gienyne.industrialedgegateway.persistence.domain.EntityStatus;
@@ -8,8 +9,6 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-
-import java.util.List;
 
 
 public interface DeviceRepository extends JpaRepository<Device, String>{
