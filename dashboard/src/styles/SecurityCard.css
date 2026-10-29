@@ -1,0 +1,138 @@
+.security-card.MuiPaper-root {
+  min-width: 0;
+  border: 1px solid #e2e9f6;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow:
+    0 1px 2px rgba(16, 42, 94, 0.05),
+    0 8px 24px -12px rgba(16, 42, 94, 0.16);
+}
+
+/* Form on the left, the rules on the right. */
+.security-card__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(260px, 1fr);
+  align-items: start;
+  gap: 40px;
+  padding: 32px;
+}
+
+.security-card__form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 560px;
+}
+
+.security-card__field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.security-card__label {
+  color: #7a88a6;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.security-card .MuiOutlinedInput-root {
+  min-height: 46px;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #14295a;
+  font-weight: 600;
+}
+
+.security-card .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline {
+  border-color: #d9e2f3;
+}
+
+.security-card .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: #aebfe0;
+}
+
+.security-card .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #2563eb;
+  border-width: 1.5px;
+}
+
+.security-card .security-card__submit {
+  align-self: flex-start;
+  min-height: 46px;
+  padding: 0 26px;
+  border-radius: 10px;
+  background: #2563eb;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.security-card .security-card__submit:hover {
+  background: #1d4ed8;
+}
+
+.security-card .security-card__submit.Mui-disabled {
+  background: #c7d6f5;
+  color: #ffffff;
+}
+
+/* ---------- Rules, ticked while the user types ---------- */
+
+.security-card__requirements {
+  padding: 22px 24px;
+  border-radius: 14px;
+  background: #f6f8fd;
+}
+
+.security-card .security-card__requirements-title {
+  margin-bottom: 14px;
+  color: #0f1f45;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.security-card__checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.security-card__check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #64748b;
+  font-size: 14.5px;
+  font-weight: 500;
+}
+
+.security-card__check .MuiSvgIcon-root {
+  flex-shrink: 0;
+  color: #b6c3dc;
+  font-size: 21px;
+}
+
+.security-card__check[data-met='true'] {
+  color: #166534;
+}
+
+.security-card__check[data-met='true'] .MuiSvgIcon-root {
+  color: #16a34a;
+}
+
+@media (max-width: 1000px) {
+  .security-card__layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+    padding: 24px;
+  }
+
+  .security-card__form {
+    max-width: none;
+  }
+}

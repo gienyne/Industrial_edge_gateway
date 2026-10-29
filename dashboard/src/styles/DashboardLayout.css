@@ -1,0 +1,249 @@
+.dashboard-layout {
+  display: flex;
+  min-height: 100vh;
+  background-color: #eef2f8;
+}
+
+/* ---------- Sidebar ---------- */
+
+.dashboard-layout__desktop-sidebar {
+  display: none;
+  width: 250px;
+  flex-shrink: 0;
+}
+
+.dashboard-layout__desktop-sidebar-inner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 250px;
+  height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.dashboard-layout__mobile-drawer {
+  width: 250px;
+  background: transparent;
+}
+
+.dashboard-sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg, #0e2559 0%, #0a1b45 100%);
+  color: #c9d6f2;
+}
+
+
+.dashboard-sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 72px;
+  padding: 0 20px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.dashboard-sidebar .dashboard-sidebar__logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background-color: #2f6fe4;
+  color: #ffffff;
+}
+
+.dashboard-sidebar__brand-title {
+  color: #ffffff;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.dashboard-sidebar__brand-caption {
+  color: #8fa5d4;
+}
+
+.dashboard-sidebar .dashboard-sidebar__divider {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.dashboard-sidebar .dashboard-sidebar__section-label {
+  padding: 20px 24px 8px;
+  color: #7f93c2;
+  letter-spacing: 0.08em;
+}
+
+.dashboard-sidebar__navigation {
+  padding: 0 12px;
+}
+
+.dashboard-sidebar .dashboard-sidebar__navigation-item {
+  margin-bottom: 4px;
+  border-radius: 10px;
+  color: #c9d6f2;
+}
+
+.dashboard-sidebar .dashboard-sidebar__navigation-item:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.dashboard-sidebar .dashboard-sidebar__navigation-item.Mui-selected,
+.dashboard-sidebar .dashboard-sidebar__navigation-item.Mui-selected:hover {
+  background-color: #1d5fd1;
+  color: #ffffff;
+}
+
+.dashboard-sidebar .dashboard-sidebar__navigation-icon {
+  min-width: 40px;
+  color: #8fa5d4;
+}
+
+.dashboard-sidebar .dashboard-sidebar__navigation-icon--selected {
+  color: #ffffff;
+}
+
+.dashboard-sidebar__navigation-text {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.dashboard-sidebar__footer {
+  margin-top: auto;
+}
+
+.dashboard-sidebar__settings {
+  padding: 12px;
+}
+
+/* ---------- Main area ---------- */
+
+.dashboard-layout__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.dashboard-header {
+  flex-shrink: 0;
+  border-bottom: 1px solid #e3e8f2;
+  background-color: #ffffff;
+}
+
+.dashboard-header .dashboard-header__toolbar {
+  gap: 12px;
+  height: 72px;
+  min-height: 72px;
+}
+
+.dashboard-header__menu-button {
+  display: inline-flex;
+}
+
+.dashboard-header__tagline {
+  flex: 1;
+  min-width: 0;
+  color: #5b6b8c;
+}
+
+.dashboard-header .dashboard-header__avatar {
+  width: 34px;
+  height: 34px;
+  background-color: #1d5fd1;
+  color: #ffffff;
+}
+
+.dashboard-layout__scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.dashboard-layout__content {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+/* Small screens: the header is a bit lower, the page scrolls normally. */
+@media (max-width: 899px) {
+  .dashboard-header .dashboard-header__toolbar {
+    height: 56px;
+    min-height: 56px;
+  }
+}
+
+/*
+ * Desktop: the shell is exactly as tall as the window. The content area is
+ * exactly as tall as the visible area, so pages (Overview, Devices, Device
+ * Details) stay fixed and only scroll INSIDE their tables/lists.
+ * .dashboard-layout__scroll stays as a safety net for very small windows.
+ */
+@media (min-width: 900px) {
+  .dashboard-layout {
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .dashboard-layout__desktop-sidebar {
+    display: block;
+  }
+
+  .dashboard-layout__main {
+    height: 100vh;
+  }
+
+  .dashboard-layout__scroll {
+    overflow-y: auto;
+  }
+
+  .dashboard-layout__content {
+    height: 100%;
+    min-height: 0;
+    padding: 20px 28px;
+  }
+
+  .dashboard-header__menu-button {
+    display: none;
+  }
+}
+
+/* ---------- Account menu ---------- */
+
+.dashboard-header .dashboard-header__account-button {
+  padding: 0;
+}
+
+.dashboard-header__menu.MuiPaper-root {
+  min-width: 200px;
+  margin-top: 6px;
+  border: 1px solid #e2e9f6;
+  border-radius: 12px;
+  box-shadow: 0 12px 28px -12px rgba(16, 42, 94, 0.3);
+}
+
+.dashboard-header__account-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 16px 12px;
+}
+
+.dashboard-header__account-label {
+  color: #7a88a6;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.dashboard-header__account-name {
+  color: #14295a;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}

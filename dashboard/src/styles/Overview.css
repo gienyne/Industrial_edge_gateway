@@ -1,0 +1,97 @@
+.overview {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.overview > * {
+  flex-shrink: 0;
+}
+
+.overview__intro {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Title and, the "Synchronizing…" pill on one line. */
+.overview__heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.overview__title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+/* Same amber as the "Unknown" status: devices wait for their birth message. */
+.overview__sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.overview .overview__lower-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 16px;
+  flex: 1 1 0;
+  flex-shrink: 1;
+  min-width: 0;
+  min-height: 310px;
+}
+
+.overview__lower-grid > * {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.overview__notice {
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+@media (max-width: 899px) {
+  .overview {
+    flex: none;
+    min-height: auto;
+  }
+
+  .overview .overview__lower-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    flex: none;
+    min-height: 0;
+  }
+
+  .overview__lower-grid > * {
+    height: 420px;
+  }
+}
+
+@media (max-width: 600px) {
+  .overview {
+    gap: 12px;
+  }
+
+  .overview__title {
+    font-size: 22px;
+  }
+}
