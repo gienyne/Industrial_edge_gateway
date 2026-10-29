@@ -1,0 +1,466 @@
+/*
+ * Devices page.
+ * - The page fills the visible height. The table box takes the remaining
+ *   space and scrolls inside (4 devices visible without scrolling).
+ * - If the window is too small, the whole page scrolls as a fallback and the
+ *   title + search bar stay stuck at the top.
+ */
+.devices {
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 auto;
+  gap: 14px;
+  width: 100%;
+  min-width: 0;
+}
+
+.devices > * {
+  flex-shrink: 0;
+}
+
+/* ---------- Sticky title + search ---------- */
+
+.devices .devices__bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 20px;
+  margin-top: -8px;
+  padding: 8px 0 10px;
+  background: #eef2f8;
+}
+
+.devices__intro {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.devices__title {
+  margin: 0;
+  color: #0f1f45;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.devices__toolbar {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  justify-content: flex-end;
+  gap: 12px;
+  min-width: 0;
+}
+
+.devices__search {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 380px;
+  min-width: 0;
+}
+
+.devices__status-filter {
+  flex: 0 0 180px;
+  min-width: 0;
+}
+
+.devices__search .MuiOutlinedInput-root,
+.devices__status-filter .MuiOutlinedInput-root {
+  min-height: 40px;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.devices__search .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline,
+.devices__status-filter .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline {
+  border-color: #d9e2f3;
+}
+
+.devices__search .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline,
+.devices__status-filter .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: #aebfe0;
+}
+
+.devices__search .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline,
+.devices__status-filter .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #2563eb;
+  border-width: 1.5px;
+}
+
+.devices__search .MuiSvgIcon-root {
+  color: #7a88a6;
+}
+
+.devices__error {
+  margin: 0;
+}
+
+.devices__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 180px;
+}
+
+/* ---------- Summary cards ---------- */
+
+.device-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.device-summary .device-summary__card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 12px 18px;
+  box-sizing: border-box;
+  border: 1px solid #e2e9f6;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow:
+    0 1px 2px rgba(16, 42, 94, 0.05),
+    0 8px 24px -12px rgba(16, 42, 94, 0.16);
+}
+
+.device-summary__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+}
+
+.device-summary__icon .MuiSvgIcon-root {
+  font-size: 24px;
+}
+
+.device-summary__icon--total {
+  color: #2563eb;
+  background: #dbeafe;
+}
+
+.device-summary__icon--online {
+  color: #16a34a;
+  background: #dcfce7;
+}
+
+.device-summary__icon--offline {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+.device-summary__content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.device-summary__label {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.device-summary .device-summary__value {
+  margin: 0;
+  color: #0f1f45;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.device-summary .device-summary__value--online {
+  color: #15803d;
+}
+
+.device-summary .device-summary__value--offline {
+  color: #b91c1c;
+}
+
+.device-summary__detail {
+  color: #64748b;
+}
+
+/* ---------- Devices table ---------- */
+
+/* Takes all remaining height, but never less than room for 4 devices. */
+.devices .devices-table.MuiPaper-root {
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 390px;
+  width: 100%;
+  min-width: 0;
+  min-height: 390px;
+  overflow: hidden;
+  border: 1px solid #e2e9f6;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow:
+    0 1px 2px rgba(16, 42, 94, 0.05),
+    0 8px 24px -12px rgba(16, 42, 94, 0.16);
+}
+
+.devices-table__header {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 2px;
+  padding: 16px 24px 12px;
+}
+
+.devices-table .devices-table__title {
+  color: #0f1f45;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.devices-table__container {
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd6ea transparent;
+}
+
+.devices-table__container::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.devices-table__container::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background: #cbd6ea;
+}
+
+.devices-table__container::-webkit-scrollbar-thumb:hover {
+  background: #a9bad9;
+}
+
+.devices-table .MuiTable-root {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.devices-table .MuiTableCell-root {
+  padding: 12px 20px;
+  border-bottom: 1px solid #eef2f9;
+  vertical-align: middle;
+}
+
+.devices-table .MuiTableHead-root .MuiTableCell-root {
+  padding-top: 9px;
+  padding-bottom: 9px;
+  background: #f6f8fd;
+  border-bottom: 1px solid #e8eef8;
+  color: #6b7a99;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.devices-table .devices-table__col-device {
+  width: 34%;
+}
+
+.devices-table .devices-table__col-status {
+  width: 17%;
+}
+
+.devices-table .devices-table__col-seen {
+  width: 25%;
+}
+
+.devices-table .devices-table__col-metrics {
+  width: 17%;
+}
+
+.devices-table .devices-table__col-action {
+  width: 7%;
+}
+
+.devices-table__device-cell {
+  overflow: hidden;
+}
+
+.devices-table__device {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.devices-table__device-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  color: #2563eb;
+  background: linear-gradient(135deg, #e8f0ff 0%, #dbe7ff 100%);
+}
+
+.devices-table__device-icon .MuiSvgIcon-root {
+  font-size: 22px;
+}
+
+.devices-table__device-info {
+  min-width: 0;
+}
+
+.devices-table .devices-table__device-name {
+  color: #14295a;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.devices-table__last-seen {
+  color: #475569;
+  white-space: nowrap;
+}
+
+.devices-table__metrics {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.devices-table__metrics-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: #2563eb;
+  background: #e8f0ff;
+}
+
+.devices-table__metrics-icon .MuiSvgIcon-root {
+  font-size: 17px;
+}
+
+.devices-table .devices-table__metric-count {
+  color: #14295a;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.devices-table .devices-table__metric-label {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.devices-table .MuiTableBody-root .MuiTableRow-root:last-child .MuiTableCell-root {
+  border-bottom: 0;
+}
+
+.devices-table .devices-table__row {
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.devices-table .MuiTableBody-root .MuiTableRow-root:hover,
+.devices-table .MuiTableBody-root .MuiTableRow-root:focus-visible {
+  background-color: #f5f8ff;
+  outline: none;
+}
+
+.devices-table .devices-table__chevron {
+  color: #8a98b5;
+}
+
+.devices-table .devices-table__row:hover .devices-table__chevron {
+  color: #2563eb;
+  background: #e8f0ff;
+}
+
+.devices-table .devices-table__empty {
+  padding: 48px 16px;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 1100px) {
+  .device-summary {
+    gap: 10px;
+  }
+
+  .device-summary .device-summary__card {
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .devices-table .MuiTableCell-root {
+    padding: 12px 14px;
+  }
+}
+
+/* Small screens: normal page scroll, fixed-height table, horizontal scroll only if really needed. */
+@media (max-width: 899px) {
+  .devices {
+    flex: none;
+  }
+
+  .devices .devices-table.MuiPaper-root {
+    flex: none;
+    height: 470px;
+    min-height: 0;
+  }
+
+  .devices-table__container {
+    overflow-x: auto;
+  }
+
+  .devices-table .MuiTable-root {
+    min-width: 560px;
+  }
+
+  .device-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .devices__title {
+    font-size: 22px;
+  }
+
+  .devices__toolbar {
+    flex-wrap: wrap;
+    justify-content: stretch;
+  }
+
+  .devices__search {
+    max-width: none;
+  }
+
+  .devices__status-filter {
+    flex: 1 1 100%;
+  }
+
+  .device-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .devices-table__header {
+    padding: 16px;
+  }
+}

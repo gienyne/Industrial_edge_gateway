@@ -2,6 +2,7 @@
 gateway/build/
 
 # --- Build artifacts ---
+/build/
 *.exe
 *.dll
 *.obj
@@ -30,4 +31,5 @@ gateway/certs/gateway_key.pem
 # --- Gateway runtime state ---
 gateway/bdseq.dat
 
-database/.env
+# --- Secrets ---
+.env

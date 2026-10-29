@@ -1,5 +1,8 @@
 package com.gienyne.industrialedgegateway.persistence.user;
 
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 
 import java.time.Instant;
 
@@ -17,7 +20,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-
+import com.gienyne.industrialedgegateway.persistence.user.models.api.ApiChangePasswordRequest;
 import com.gienyne.industrialedgegateway.persistence.user.models.api.ApiErrorResponse;
 import com.gienyne.industrialedgegateway.persistence.user.models.api.ApiLoginRequest;
 import com.gienyne.industrialedgegateway.persistence.user.models.api.ApiLoginResponse;
@@ -36,12 +39,13 @@ public class AuthController{
 
     // Prepares the CSRF token before login.
     @GetMapping("/csrf")
-    public ResponseEntity<Void> csrf(CsrfToken csrfToken){
+    public ResponseEntity<Void> csrf(@Parameter(hidden = true) CsrfToken csrfToken){
         csrfToken.getToken();
         return ResponseEntity.noContent().build();
     }
 
 
+    @Operation(parameters = { @Parameter(name = "X-XSRF-TOKEN", in = ParameterIn.HEADER, required = true, description = "CSRF token from the XSRF-TOKEN cookie")})
     @PostMapping("/login")
     public ResponseEntity<?> login(
         @RequestBody(required = false) ApiLoginRequest body,
@@ -70,6 +74,23 @@ public class AuthController{
     public ApiLoginResponse me(Authentication authentication){
         return new ApiLoginResponse(authentication.getName());
     }
+
+
+    // Changes the password of the signed-in user. A wrong request answers 400 (never 401: then that would sign the user out).
+    @Operation(parameters = {@Parameter(name = "X-XSRF-TOKEN", in = ParameterIn.HEADER, required = true, description = "CSRF token from the XSRF-TOKEN cookie")})
+    @PostMapping("/password")
+    public ResponseEntity<Void> changePassword(@RequestBody(required = false) ApiChangePasswordRequest body, Authentication authentication){
+
+        if(body == null){
+            throw new PasswordChangeException("The current and the new password are required");
+        }
+
+        authService.changePassword(authentication.getName(), body.currentPassword(), body.newPassword());
+
+        return ResponseEntity.noContent().build();
+
+    }
+
 
 
     @PostMapping("/logout")

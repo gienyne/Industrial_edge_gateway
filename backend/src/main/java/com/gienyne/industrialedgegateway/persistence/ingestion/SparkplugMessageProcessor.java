@@ -17,6 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -28,6 +30,8 @@ public class SparkplugMessageProcessor{
 
     private static final String BDSEQ_METRIC = "bdSeq";
     private static final String REBIRTH_METRIC = "Node Control/Rebirth";
+    private static final Set<String> SEQUENCED_MESSAGES = Set.of("NBIRTH", "NDATA", "DBIRTH", "DDATA", "DDEATH");
+    private static final int SEQUENCE_MODULO = 256;
 
     private final IngestionService ingestionService;
     private final DeviceRepository deviceRepository;
@@ -38,6 +42,9 @@ public class SparkplugMessageProcessor{
 
     // True during the resynchronization window after an MQTT (re)connect.
     private volatile boolean synchronizing = false;
+
+    // Last "seq" seen for each Edge Node ("group/edgeNode"). Used to detect lost messages.
+    private final Map<String, Integer> lastSequence = new ConcurrentHashMap<>();
 
 
     public SparkplugMessageProcessor(IngestionService ingestionService, DeviceRepository deviceRepository, DeviceMetricRepository deviceMetricRepository, EdgeNodeRepository edgeNodeRepository, EventService eventService, SparkplugCommandPublisher commandPublisher){
@@ -67,6 +74,8 @@ public class SparkplugMessageProcessor{
     public void beginSynchronization(){
 
         synchronizing = true;
+
+        lastSequence.clear();
 
         int nodes = edgeNodeRepository.replaceStatus(EntityStatus.ONLINE, EntityStatus.UNKNOWN);
         int devices = deviceRepository.replaceStatus(EntityStatus.ONLINE, EntityStatus.UNKNOWN);
@@ -99,6 +108,8 @@ public class SparkplugMessageProcessor{
 
         Instant time = payload.hasTimestamp() ? Instant.ofEpochMilli(payload.getTimestamp()) : Instant.now();
 
+        trackSequence(topic, payload, time);
+
         switch (topic.messageType()){
 
             case "NBIRTH" -> onNodeBirth(topic, payload, time);
@@ -118,7 +129,62 @@ public class SparkplugMessageProcessor{
         }
     }
 
+
+    // ---- Sequence numbers ----------------------------------------------
+
+
+    private void trackSequence(SparkplugTopic topic, Payload payload, Instant time){
+
+        if(!SEQUENCED_MESSAGES.contains(topic.messageType()) || !payload.hasSeq()){
+            return;
+        }
+
+        long Seq = payload.getSeq();
+
+        if(Seq < 0 || Seq >= SEQUENCE_MODULO){
+            log.warn("Ignoring invalid seq {} on {}", Seq, topic.messageType());
+            return;
+        }
+
+        int received = (int) Seq;
+        String key = topic.groupId() + "/" + topic.edgeNodeId();
+
+        // A birth always starts a new sequence.
+        if("NBIRTH".equals(topic.messageType())){
+            lastSequence.put(key, received);
+            return;
+        }
+
+        Integer previous = lastSequence.put(key, received);
+        
+        if(previous == null){
+            return;
+        }
+
+        if(received == previous){
+            log.debug("Duplicate seq {} on {}", received, key);
+            return;
+        }
+
+        int expected = (previous + 1) % SEQUENCE_MODULO;
+
+        if(received == expected){
+            return;
+        }
+
+        int missing = (received - expected + SEQUENCE_MODULO) % SEQUENCE_MODULO;
+
+        log.warn("Sequence gap on {}: expected {}, received {} ({} message(s) possibly lost)", key, expected, received, missing);
+
+
+        record(time, EventType.SEQUENCE_GAP, topic, null, String.format("Sequence gap: expected %d, received %d (%d message (s) possibly lost)", expected, received, missing));
+
+        commandPublisher.requestRebirth(topic.groupId(), topic.edgeNodeId());
+
+    }
+
     // ---- Edge Node ----------------------------------------------------------------------
+
     private void onNodeBirth(SparkplugTopic topic, Payload payload, Instant time){
 
         long bdSeq = readBdSeq(payload);

@@ -50,6 +50,7 @@ std::uint32_t SparkplugEncoder::toSparkplugDataType(MetricDataType type) const
     {
     case MetricDataType::Boolean : return 11;
     case MetricDataType::Integer : return 3;
+    case MetricDataType::UInt32 : return 7;
     case MetricDataType::Double : return 10;
     case MetricDataType::String : return 12;
     }
@@ -85,7 +86,11 @@ void SparkplugEncoder::appendMetric(Payload& payload,  const Metric& metric, boo
         break;
     
     case MetricDataType::Integer:
-        out->set_int_value(static_cast<std::uint32_t>(std::get<int>(metric.value)));
+        out->set_int_value(std::get<int>(metric.value));
+        break;
+
+    case MetricDataType::UInt32:
+        out->set_int_value(std::get<std::uint32_t>(metric.value));
         break;
 
     case MetricDataType::Double:
