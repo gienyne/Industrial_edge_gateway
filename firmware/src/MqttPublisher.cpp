@@ -121,6 +121,6 @@ bool MqttPublisher::publish(const SourceData& data)
     // Define device topic
     String topic = String("raw/") + DEVICE_ID ;
 
-    return mqttClient_.publish(topic.c_str(), buffer, len);
+    return mqttClient_.publish(topic.c_str(), reinterpret_cast<const uint8_t*>(buffer), len, /*retain=*/false);
     
 }
