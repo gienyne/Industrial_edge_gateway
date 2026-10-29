@@ -85,6 +85,11 @@ std::string ESP32Connector::extractDeviceId(const std::string& topic) const{
 
 void ESP32Connector::message_arrived(mqtt::const_message_ptr msg){
 
+    if(msg->is_retained()){
+        std::cout << "[ESP32Connector] Ignoring retained message on " << msg->get_topic() << std::endl;
+        return;
+    }
+
     // message_arrived() runs on the MQTT callback thread.
     //  Protect the shared buffer because collectData() accesses it from the Gateway's main thread.
     std::lock_guard<std::mutex> lock(mutex_);

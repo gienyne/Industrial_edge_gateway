@@ -18,6 +18,7 @@ namespace
     {
         if (value == "Boolean") return MetricDataType::Boolean;
         if (value == "Integer") return MetricDataType::Integer;
+        if (value == "UInt32")  return MetricDataType::UInt32;
         if (value == "Double")  return MetricDataType::Double;
         if (value == "String")  return MetricDataType::String;
 
@@ -117,6 +118,7 @@ namespace config
             OpcUaSourceConfig source;
             source.endpoint        = require(sourceJson, "endpoint", "connectors.opcua.sources[]").get<std::string>();
             source.deviceId        = require(sourceJson, "deviceId", "connectors.opcua.sources[]").get<std::string>();
+            source.securityMode    = sourceJson.value("securityMode", std::string("SignAndEncrypt"));
             source.username        = require(sourceJson, "username", "connectors.opcua.sources[]").get<std::string>();
             source.password        = require(sourceJson, "password", "connectors.opcua.sources[]").get<std::string>();
             source.certificatePath = require(sourceJson, "certificatePath", "connectors.opcua.sources[]").get<std::string>();

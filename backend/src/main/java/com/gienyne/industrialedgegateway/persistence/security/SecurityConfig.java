@@ -43,6 +43,7 @@ public class SecurityConfig{
         csrf.csrfTokenRepository(csrfTokenRepository)
         .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler())
         ).authorizeHttpRequests(auth -> auth.requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
         .requestMatchers("/error").permitAll()
         .requestMatchers(HttpMethod.GET, "/api/auth/csrf").permitAll()
         .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/logout").permitAll()

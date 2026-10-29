@@ -1,0 +1,55 @@
+.account-card.MuiPaper-root {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  padding: 18px 20px;
+  border: 1px solid #e2e9f6;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow:
+    0 1px 2px rgba(16, 42, 94, 0.05),
+    0 8px 24px -12px rgba(16, 42, 94, 0.16);
+}
+
+.account-card .account-card__avatar {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  background-color: #1d5fd1;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.account-card__identity {
+  flex: 1;
+  min-width: 0;
+}
+
+.account-card .account-card__name {
+  color: #0f1f45;
+  font-size: 17px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.account-card__status {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 7px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.account-card__status::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #16a34a;
+}

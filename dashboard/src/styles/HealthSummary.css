@@ -1,0 +1,92 @@
+.health-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  width: 100%;
+  align-items: stretch;
+}
+
+.health-summary .health-summary__card {
+  min-width: 0;
+  height: 100%;
+  border: 1px solid #e2e9f6;
+  border-radius: 14px;
+  box-shadow:
+    0 1px 2px rgba(16, 42, 94, 0.05),
+    0 8px 24px -12px rgba(16, 42, 94, 0.16);
+}
+
+.health-summary__card-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  height: 100%;
+  padding: 16px 20px;
+}
+
+.health-summary__card-content:last-child {
+  padding-bottom: 16px;
+}
+
+.health-summary__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+}
+
+.health-summary__icon[data-variant='success'] {
+  color: #16a34a;
+  background-color: #dcfce7;
+}
+
+.health-summary__icon[data-variant='warning'] {
+  color: #d97706;
+  background-color: #fef3c7;
+}
+
+.health-summary__icon[data-variant='error'] {
+  color: #dc2626;
+  background-color: #fee2e2;
+}
+
+.health-summary__icon[data-variant='primary'] {
+  color: #2563eb;
+  background-color: #dbeafe;
+}
+
+.health-summary__details {
+  flex: 1;
+  min-width: 0;
+}
+
+.health-summary__label {
+  min-height: 20px;
+}
+
+.health-summary__value {
+  margin-top: 2px;
+  color: #0f1f45;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.health-summary__subtitle {
+  display: block;
+  margin-top: 2px;
+}
+
+@media (max-width: 700px) {
+  .health-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .health-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
