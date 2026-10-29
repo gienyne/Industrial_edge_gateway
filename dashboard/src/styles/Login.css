@@ -1,0 +1,244 @@
+
+/* Main layout */
+.login {
+  display: grid;
+  grid-template-columns: minmax(360px, 5fr) minmax(0, 6fr);
+  min-height: 100vh;
+  background: #eef2f8;
+}
+
+/* Left brand panel */
+.login__brand {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 32px;
+  min-width: 0;
+  padding: 36px 40px;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(11, 30, 76, 0.88) 0%,
+      rgba(11, 30, 76, 0.48) 48%,
+      rgba(10, 27, 69, 0.94) 100%
+    ),
+    url('../assets/login_bildSFM.jpg') 45% center / cover no-repeat,
+    #0a1b45;
+
+  color: #c9d6f2;
+}
+
+/* Brand header */
+.login__brand-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: -30px;
+  margin-top: -12px;
+}
+
+.login__logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background-color: #2f6fe4;
+  color: #ffffff;
+}
+
+.login .login__brand-title {
+  color: #ffffff;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.login .login__brand-caption {
+  color: #a7bce5;
+}
+
+/* Main promotional content */
+.login__pitch {
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+  width: 100%;
+  max-width: 430px;
+  margin-left: -20px;
+}
+
+.login .login__headline {
+  margin: 0;
+  color: #ffffff;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.5px;
+}
+
+/* Feature list */
+.login__highlights {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.login__highlight {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.login__highlight-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.10);
+  color: #9bbcff;
+}
+
+.login__highlight-icon svg {
+  font-size: 21px;
+}
+
+.login__highlight-content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.login__highlight-title {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.login__highlight-text {
+  color: #b7c8e8;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Copyright on the white panel */
+.login__copyright {
+  position: absolute;
+  right: 24px;
+  bottom: 22px;
+  left: 24px;
+
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px 12px;
+
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* Right login panel */
+.login__panel {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 32px 24px 64px;
+}
+
+/* Tablet and mobile layout */
+@media (max-width: 899px) {
+  .login {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+  }
+
+  .login__brand {
+    gap: 24px;
+    padding: 22px 24px;
+    background-position: 45% center;
+  }
+
+  .login__pitch {
+    margin-left: 0;
+    max-width: 520px;
+  }
+
+  .login .login__headline {
+    font-size: 25px;
+  }
+
+  .login__highlights {
+    gap: 12px;
+  }
+
+  .login__brand-footer {
+    padding-top: 12px;
+  }
+
+  .login__panel {
+    padding: 32px 24px 72px;
+  }
+
+  .login__copyright {
+    bottom: 16px;
+  }
+}
+
+/* Small mobile screens */
+@media (max-width: 480px) {
+  .login__brand {
+    padding: 20px;
+  }
+
+  .login__pitch {
+    gap: 20px;
+  }
+
+  .login .login__headline {
+    font-size: 23px;
+  }
+
+  .login__highlight-text {
+    font-size: 12.5px;
+  }
+
+  .login__panel {
+    padding: 28px 20px 72px;
+  }
+
+  .login__copyright {
+    right: 12px;
+    left: 12px;
+    font-size: 10px;
+  }
+}
+
+/* Short desktop screens */
+@media (max-height: 720px) and (min-width: 900px) {
+  .login__brand {
+    gap: 20px;
+    padding-top: 24px;
+    padding-bottom: 24px;
+  }
+
+  .login__pitch {
+    gap: 20px;
+  }
+
+  .login__highlights {
+    gap: 12px;
+  }
+}
