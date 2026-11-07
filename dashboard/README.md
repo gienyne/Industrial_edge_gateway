@@ -15,10 +15,10 @@ Web-based monitoring dashboard for the `industrial_edge_gateway` project. It pro
 
 ## Technology Stack
 
-- **React** and **TypeScript** — user interface and application logic
-- **Material UI (MUI)** — interface components
-- **Vite** — development server and production build tooling
-- **SVG** — custom-rendered history charts
+- **React** and **TypeScript** -> user interface and application logic
+- **Material UI (MUI)** -> interface components
+- **Vite** -> development server and production build tooling
+- **SVG** -> custom-rendered history charts
 
 ## Getting Started
 
