@@ -1,7 +1,71 @@
+name: industrial_edge_gateway
+
 services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: gateway-timescaledb
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescaledb-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  adminer:
+    image: adminer:latest
+    container_name: gateway-adminer
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    depends_on:
+      - timescaledb
+
+  backend:
+    build: ./backend
+    container_name: gateway-backend
+    restart: unless-stopped
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8082
+      DB_HOST: timescaledb
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DASHBOARD_ADMIN_USER: ${DASHBOARD_ADMIN_USER}
+      DASHBOARD_ADMIN_PASSWORD: ${DASHBOARD_ADMIN_PASSWORD}
+      MQTT_BROKER_ADDRESS: tcp://host.docker.internal:1883
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
   gateway:
+    build: ./gateway
     image: gateway-linux
     command: /src/build/gateway
     volumes:
       - ./gateway/config_docker/config.docker.json:/src/config/config.json
       - ./gateway/certs:/src/certs
+
+  dashboard:
+    build: ./dashboard
+    container_name: gateway-dashboard
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8083:80"
+
+volumes:
+  timescaledb-data:
+    name: database_timescaledb-data
+    external: true

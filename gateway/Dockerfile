@@ -1,5 +1,3 @@
-##STAGE 1 -> BUILD
-
 # Environment used to compile the Gateway.
 FROM ubuntu:22.04 AS builder
 
@@ -32,11 +30,11 @@ WORKDIR /src
 
 
 # Copy the files required to configure and build the Gateway.
-COPY gateway/vcpkg.json .
-COPY gateway/CMakeLists.txt .
-COPY gateway/src ./src
-COPY gateway/include ./include
-COPY gateway/proto ./proto
+COPY vcpkg.json .
+COPY CMakeLists.txt .
+COPY src ./src
+COPY include ./include
+COPY proto ./proto
 
 
 # Configure and compile the Gateway.
@@ -44,10 +42,6 @@ RUN cmake -B build -S . \
     -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake \
     && cmake --build build
 
-
-
-
-## STAGE 2 -> RUNTIME
 
 
 FROM ubuntu:22.04

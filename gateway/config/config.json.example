@@ -35,6 +35,12 @@
             { "nodeId": "ns=4;s=|var|CODESYS Control Win V3 x64.Application.GVL.Verbrauch", "metricName": "waterConsumption", "dataType": "Double", "unit": "L" },
             { "nodeId": "ns=4;s=|var|CODESYS Control Win V3 x64.Application.GVL.Regen", "metricName": "rainSimActive", "dataType": "Boolean", "unit": "-" }
           ]
+        },
+        {
+
+        },
+        {
+
         }
       ]
     }

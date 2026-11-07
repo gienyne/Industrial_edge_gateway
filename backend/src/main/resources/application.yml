@@ -18,7 +18,7 @@ spring:
 
 gateway:
  mqtt:
-  broker-address: tcp://localhost:1883
+  broker-address: ${MQTT_BROKER_ADDRESS:tcp://localhost:1883}
  sparkplug:
   group-id: SFM
   edge-node-id: IndustrialEdgeGateway
