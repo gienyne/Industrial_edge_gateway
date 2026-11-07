@@ -2,425 +2,671 @@
 
 ## Purpose
 
-Gateway connectors integrate external source devices and industrial systems
-into the Industrial Edge Gateway.
+Gateway connectors connect external devices and industrial systems to the
+Industrial Edge Gateway.
 
-Each connector is responsible for acquiring data from one source and
-converting it into the common internal data model.
+Each connector communicates with one source protocol and converts the received
+data into the gateway's common internal data model: `Metric` and
+`DeviceData`.
 
-The gateway core does not depend on the specific source technology.
+Everything behind the connectors works with this common model and does not
+depend on the source protocol.
+
+---
+
+## Granularity: One Connector per Protocol
+
+A connector represents a **protocol**, not a machine. One connector instance
+can therefore handle several devices.
+
+| Connector        | Protocol    | Devices served                                                                                            |
+| ---------------- | ----------- | --------------------------------------------------------------------------------------------------------- |
+| `ESP32Connector` | MQTT + JSON | Every ESP32 publishing through the configured topic filter (`raw/+`). The device ID comes from the topic. |
+| `OpcUaConnector` | OPC UA      | Every entry in `sources`. Each source endpoint represents one device and uses its configured `deviceId`.  |
+
+Sparkplug standardization happens only once, centrally in the encoder.
+
+Adding another OPC UA machine therefore requires only a new entry in
+`source`. No new connector code is needed.
+
+For OPC UA, the current model is **one endpoint = one machine**. Each machine
+in the Smart Factory runs its own OPC UA server; there is no central OPC UA
+server for multiple machines.
 
 ---
 
 ## Responsibilities
 
-A gateway connector
+A connector
 
-- communicates with its source system;
-- acquires source data;
-- converts source-specific data into `Metric` objects;
-- groups the metrics into a `DeviceData` object;
-- provides the device identity associated with the source;
-- reports acquisition or communication errors.
+* communicates with its source system;
+* acquires the source data;
+* converts source-specific data into `Metric` objects;
+* groups the metrics of each device into a `DeviceData`;
+* provides the device identity;
+* handles source outages itself through retries with a cooldown.
 
 A connector never
 
-- encodes Sparkplug messages;
-- publishes MQTT messages;
-- merges data from different connectors;
-- contains visualization logic.
-
-Each connector produces its own `DeviceData`.
+* creates Sparkplug messages;
+* publishes MQTT messages to the Sparkplug broker path;
+* combines data from different devices;
+* contains visualization or storage logic.
 
 ---
 
 ## Position in the Architecture
 
 ```text
-Source Devices / Industrial Systems
-                │
-                │ source-specific communication
-                ▼
-        Gateway Connectors
-                │
-                │ common internal data model
-                ▼
-            DeviceData
-                │
-                ▼
-        SparkplugEncoder
-                │
-                ▼
-        SparkplugPayload
-                │
-                ▼
-         MQTTPublisher
-                │
-                ▼
-           MQTT Broker
+ ┌───────────────────────────────────────┐
+ │ Source Devices / Industrial Systems   │
+ └───────────────────┬───────────────────┘
+                     │
+                     │ source-specific protocol
+                     ▼
+            ┌──────────────────┐
+            │ Gateway Connector│
+            │                  │
+            │ ESP32 / OPC UA   │
+            └────────┬─────────┘
+                     │
+                     │ common data model
+                     ▼
+             ┌────────────────┐
+             │   DeviceData   │
+             │    + Metric    │
+             └───────┬────────┘
+                     │
+                     ▼
+            Gatewayapplication
+                     │
+                     ▼
+              SparkplugEncoder
+                     │
+                     ▼
+               Mqttpublisher
+                     │
+                     ▼
+                MQTT Broker
 ```
 
-Gateway connectors form the boundary between source-specific
-communication and the gateway's common internal data model.
+The connector is the **protocol boundary**: source-specific data ends at the
+connector, and `DeviceData` is what the rest of the gateway sees.
 
 ---
 
-## IConnector Interface
-
-All gateway connectors implement the common `IConnector` interface.
+## `IConnector` Interface
 
 ```cpp
 class IConnector
 {
 public:
-
     virtual ~IConnector() = default;
 
     virtual bool initialize() = 0;
-
-    virtual DeviceData collectData() = 0;
-
+    virtual std::vector<DeviceData> collectData() = 0;
     virtual const char* name() const = 0;
 };
 ```
 
-The interface allows `GatewayApplication` to handle different connector
-types through a common abstraction.
-
----
-
-## Interface Semantics
-
 ### `initialize()`
 
-Initializes the connection and resources required by the connector.
+Prepares the connector by loading credentials, creating clients and trying
+the first connection.
 
-Returns `true` if initialization succeeds.
+A source that cannot be reached is **not considered an initialization
+failure**. The source remains registered, and `collectData()` keeps trying to
+reconnect.
 
-A return value of `false` indicates that the connector could not be
-initialized successfully.
+This allows the gateway to start even when its sources are not available yet.
 
 ### `collectData()`
 
-Acquires the current data from the source and returns it as a `DeviceData`
-object.
+Returns the current data of every device that the connector can currently
+read, as zero or more `DeviceData` objects.
 
-Each invocation represents one acquisition cycle for that connector.
+Each call represents one acquisition cycle.
 
-The returned `DeviceData` contains only the metrics belonging to that
-connector's source device.
+Connectors always return the **current state**, not a delta. Change detection
+and RBE are handled later by `Gatewayapplication`.
+
+By convention, a `DeviceData` with an empty `metrics` vector means:
+
+> The device was reached, but no usable metric could be extracted.
+
+It is therefore a liveness signal and nothing more.
+
+`ESP32Connector` uses this behavior for corrupted JSON. `OpcUaConnector`
+instead returns no `DeviceData` when a source cannot provide any readable
+metric.
 
 ### `name()`
 
-Returns a human-readable identifier for the connector implementation.
-
-It can be used for diagnostics, logging and monitoring.
+Returns the connector's name, used in logs and diagnostics
 
 ---
 
-## Current and Planned Implementations
+## Timestamps
 
-### ESP32Connector
+Connectors assign `DeviceData.timestamp` and every `Metric.timestamp` using
+the gateway's own clock:
 
-Connects the Industrial Edge Gateway to an ESP32-based source device.
+```text
+nowMillis()
+    │
+    ▼
+TimeUtils.h
+    │
+    ▼
+Unix epoch time in milliseconds
+```
 
-The ESP32 performs local sensor acquisition and transmits source data to
-the gateway through a raw transport mechanism.
+The current implementation does not use a trustworthy source-side epoch
+timestamp:
 
-The exact raw transport protocol remains independent from the
-`IConnector` interface.
+* an ESP32 provides uptime rather than an absolute timestamp;
+* the OPC UA `SourceTimestamp` is not read in the current version.
 
-Conceptually:
+Using the gateway clock therefore gives all connectors the same timestamp
+format.
+
+---
+
+# ESP32Connector
+
+`ESP32Connector` receives raw MQTT messages published by ESP32 source devices.
 
 ```text
 ESP32
- │
- │ Raw Transport
- ▼
+  │
+  │ MQTT / JSON
+  ▼
+raw/<deviceId>
+  │
+  ▼
 ESP32Connector
- │
- ▼
-DeviceData
+  │
+  │ Metric + DeviceData
+  ▼
+Gatewayapplication
 ```
 
-### OPCUAConnector
+### MQTT Reception
 
-Future connector for acquiring data from OPC UA-enabled industrial
-equipment.
+The connector subscribes to the configured wildcard topic filter, normally:
 
 ```text
-OPC UA Device
-     │
-     ▼
-OPCUAConnector
-     │
-     ▼
-DeviceData
+raw/+
 ```
 
-### ModbusConnector
-
-Future connector for integrating Modbus-enabled devices.
+The device ID is extracted from the **topic**:
 
 ```text
-Modbus Device
-     │
-     ▼
-ModbusConnector
-     │
-     ▼
-DeviceData
+raw/esp32-dz
+    │
+    └──► deviceId = "esp32-dz"
 ```
 
-### RESTConnector
+The `deviceId` field inside the JSON payload is not used as the device
+identity.
 
-Future connector for integrating devices or systems that expose a REST
-interface.
+Paho uses an asynchronous callback for incoming messages. The callback thread
+only stores the latest payload for each device under a mutex.
+
+Parsing happens later in `collectData()` on the main thread.
+
+This keeps the callback independent from the gateway application state.
+
+As a result, one `collectData()` call returns at most one `DeviceData` per
+device.
+
+### Data Mapping
+
+The JSON payload is converted into the following metrics:
+
+| JSON `type` | Metrics                   |
+| ----------- | ------------------------- |
+| `DHT11`     | `temperature`, `humidity` |
+| `SHOCK`     | `shockDetected`           |
+| `LIGHT`     | `lightIntensity`          |
+| `BUTTON`    | `buttonPressed`           |
+
+In addition, the firmware's `millis()` value is exposed as:
 
 ```text
-REST API
-   │
-   ▼
-RESTConnector
-   │
-   ▼
-DeviceData
+uptimeMs
 ```
 
----
+`uptimeMs` represents **uptime**, not a date.
 
-## Connector Configuration
+If its value suddenly decreases, this indicates that the ESP32 has rebooted.
 
-Connectors may require configuration specific to their source system.
+### Invalid and Unexpected Data
 
-Connector-specific configuration is kept separate from the global
-`Configuration` object because the gateway may handle multiple source
-devices and different source technologies.
+Corrupted JSON is caught during parsing.
 
-The global `Configuration` contains gateway-wide settings such as MQTT,
-Sparkplug and runtime parameters.
+The device then produces:
 
-A connector-specific configuration contains only parameters required by
-that connector and its source.
+```text
+DeviceData
+    ├── deviceId
+    ├── timestamp
+    └── metrics = {}
+```
 
-For example:
+This keeps the device's liveness information while publishing no unusable
+data.
+
+Valid JSON with an unexpected structure is handled differently. It is not
+treated as a parsing error and produces a `DeviceData` containing only
+`uptimeMs`.
+
+### MQTT Reconnection
+
+If the MQTT connection is lost:
+
+```text
+Paho connection_lost()
+        │
+        ▼
+connected_ = false
+        │
+        ▼
+collectData()
+        │
+        │ after cooldown
+        ▼
+reconnect + re-subscribe
+```
+
+The connector therefore handles its own MQTT reconnection.
+
+### Configuration
 
 ```cpp
 struct ESP32ConnectorConfig
 {
-    const char* deviceId;
-
-    // Future transport-specific parameters
+    std::string deviceId;       // MQTT client id of this connector
+    std::string brokerAddress;  // e.g. tcp://localhost:1883
+    std::string topicFilter;    // e.g. raw/+
 };
 ```
 
-If a connector requires additional source-specific parameters, they can be
-added to its configuration structure.
+The `deviceId` field here is **not** the Sparkplug device ID.
 
-For example:
+It is the MQTT client ID used by the connector's own Paho connection.
+
+It must be different from:
+
+* the MQTT client ID of `Mqttpublisher`;
+* the client ID of every other MQTT client on the broker.
+
+Otherwise, the broker can disconnect the older client using the same client
+ID.
+
+The raw MQTT/JSON format is documented in `data_models.md`.
+
+---
+
+# OpcUaConnector
+
+`OpcUaConnector` reads process variables from OPC UA servers using
+`open62541pp`.
+
+```text
+┌────────────────────┐
+│     OPC UA Server  │
+│      (CODESYS)     │
+└─────────┬──────────┘
+          │
+          │ OPC UA
+          ▼
+┌────────────────────┐
+│   OpcUaConnector   │
+└─────────┬──────────┘
+          │
+          │ DeviceData
+          ▼
+┌────────────────────┐
+│ Gatewayapplication │
+└────────────────────┘
+```
+
+One configured OPC UA source produces at most one `DeviceData` per acquisition
+cycle.
+
+---
+
+## Security
+
+Each source connects using:
+
+* `SignAndEncrypt`;
+* a client certificate;
+* username/password authentication.
+
+With the current CODESYS server, the negotiated security policy is
+`Basic256Sha256`.
+
+The certificate's `SubjectAltName` must contain the client's application URI:
+
+```text
+urn:industrial-edge-gateway:opcua-probe
+```
+
+The same certificate and application URI are reused for all connections so
+that the trust established on the server side remains valid.
+
+The certificate and private key are read from disk on every connection
+attempt.
+
+---
+
+## Polling Instead of Subscriptions
+
+The connector uses synchronous polling rather than OPC UA subscriptions.
+
+Each `collectData()` call:
+
+1. runs `runIterate()`;
+2. reads every configured node;
+3. converts the values into `Metric` objects;
+4. returns the resulting `DeviceData`.
+
+```text
+collectData()
+     │
+     ├── runIterate()
+     │
+     ├── read metric 1
+     ├── read metric 2
+     ├── read metric 3
+     └── ...
+             │
+             ▼
+         DeviceData
+```
+
+This is the final design for the current application, not a temporary step
+towards subscriptions.
+
+The OPC UA data consists of only a few slowly changing variables. Introducing
+subscriptions would add a separate notification and threading model without
+providing a useful benefit for the current use case.
+
+---
+
+## Runtime Lifetime
+
+The certificate, private key and OPC UA client are kept together in the
+per-source runtime state.
+
+The client keeps references to the certificate buffers, so those buffers must
+remain alive for at least as long as the client.
+
+---
+
+## Data Types
+
+The configured metric type determines how the OPC UA value is converted.
+
+| Configuration type | OPC UA type | Gateway metric |
+| ------------------ | ----------- | -------------- |
+| `REAL`             | `Float`     | `Double`       |
+| `REAL`             | `Double`    | `Double`       |
+| `REAL`             | `Int32`     | `Double`       |
+| `Integer`          | `Int32`     | `Integer`      |
+| `String`           | String      | `String`       |
+
+`String` is implemented but has not yet been tested against a real server.
+
+---
+
+## Reconnection and Read Errors
+
+When an OPC UA session is lost:
+
+```text
+OPC UA session lost
+        │
+        ▼
+source marked disconnected
+        │
+        ▼
+wait for cooldown (5 s)
+        │
+        ▼
+reconnect
+```
+
+The reconnect attempt is synchronous.
+
+If the server is unavailable, the attempt can block `collectData()` for about
+2 seconds against a closed local port. This delays the other sources handled
+in the same polling cycle.
+
+A node that cannot be read is skipped and the error is logged.
+
+Other readable nodes of the same source continue to be processed.
+
+If no metric can be read successfully, the source produces **no
+`DeviceData`**.
+
+---
+
+## Configuration
 
 ```cpp
-struct OPCUAConnectorConfig
+struct OpcUaMetricConfig
 {
-    const char* deviceId;
+    std::string nodeId;
+    std::string metricName;
+    MetricDataType dataType;
+    std::string unit;
+};
 
-    // Future OPC UA-specific parameters
+struct OpcUaSourceConfig
+{
+    std::string endpoint;
+    std::string deviceId;
+    std::string username;
+    std::string password;
+    std::string certificatePath;
+    std::string privateKeyPath;
+    std::vector<OpcUaMetricConfig> metrics;
+};
+
+struct OpcUaConnectorConfig
+{
+    std::vector<OpcUaSourceConfig> sources;
 };
 ```
 
-The exact parameters of future connectors are not defined yet.
+The current source is **AquaControl** (available on my Github), a CODESYS irrigation simulation
+exposed through OPC UA.
 
-A connector that requires no additional parameters beyond the device
-identity may accept it directly as a constructor parameter rather than
-through a dedicated configuration structure.
+It is represented as:
+
+```text
+Device ID:
+aquacontrol-opcua
+
+Metrics:
+├── tankLevel
+├── pumpActive
+├── valveActive
+├── waterConsumption
+└── rainSimActive
+```
+
+Its address space is flat, so the complete application is currently treated
+as one device.
+
+### Current OPC UA Limitations
+
+* The server certificate is not validated yet because no trust store is
+  configured.
+* The OPC UA `SourceTimestamp` is not currently used.
 
 ---
 
-## Device Identity
+# Failure Handling
 
-Each connector represents one source device and therefore owns the identity
-of that source through its connector-specific configuration.
+| Situation                     | Connector behavior                                                                                |
+| ----------------------------- | ------------------------------------------------------------------------------------------------- |
+| MQTT connection lost          | `ESP32Connector` clears its connection flag, then reconnects and re-subscribes after the cooldown |
+| Corrupted JSON                | `ESP32Connector` catches the error and returns `DeviceData` with no metrics                       |
+| OPC UA session lost           | `OpcUaConnector` marks the source disconnected and retries after the cooldown                     |
+| OPC UA read error             | The affected metric is skipped and the error is logged                                            |
+| All OPC UA reads fail         | No `DeviceData` is returned for that source                                                       |
+| Source unreachable at startup | Not fatal; the connector remains registered and retries from `collectData()`                      |
+
+From the rest of the gateway's point of view, these failures result in
+**silence**.
+
+If a device remains silent longer than `deviceTimeout`, `Gatewayapplication`
+publishes `DDEATH` and removes the device state.
+
+When the source becomes available again, the device is treated as a new device
+and therefore causes a rebirth.
+
+Connectors do not publish their own health status.
+
+---
+
+# Device Identity
+
+Every `DeviceData` contains the ID of the device it describes.
+
+This ID becomes the Sparkplug Device ID in the MQTT topic:
+
+```text
+spBv1.0/<group>/DDATA/<edgeNode>/<deviceId>
+```
+
+Therefore, device IDs must be unique across **all connectors**.
+
+| Connector        | Source of device ID                 |
+| ---------------- | ----------------------------------- |
+| `ESP32Connector` | MQTT topic: `raw/<deviceId>`        |
+| `OpcUaConnector` | `deviceId` from `OpcUaSourceConfig` |
+
+There is no global device-ID generator in the gateway.
+
+Each connector is responsible for providing a valid and unique device ID.
+
+---
+
+# Connector Configuration
+
+Connector-specific settings are kept separate from gateway-wide settings.
+
+Each connector receives its own configuration structure during construction.
+
+`ConfigLoader` reads the JSON configuration and creates the corresponding
+configuration objects.
+
+The complete configuration format is documented in `configuration.md`.
+
+---
+
+# Multiple Connectors
+
+`main.cpp` creates all connectors and passes them to `Gatewayapplication` as:
+
+```cpp
+std::vector<std::unique_ptr<IConnector>>
+```
 
 For example:
 
 ```text
-ESP32ConnectorConfig
-        │
-        └── deviceId
-
-OPCUAConnectorConfig
-        │
-        └── deviceId
+                     Gatewayapplication
+                              │
+             ┌────────────────┴────────────────┐
+             │                                 │
+             ▼                                 ▼
+      ESP32Connector                     OpcUaConnector
+             │                                 │
+      ┌──────┴──────┐                          │
+      ▼             ▼                          ▼
+  esp32-dz      esp32-techz             aquacontrol-opcua
+      │             │                          │
+      └─────────────┴──────────────┬───────────┘
+                                   ▼
+                             DeviceData
 ```
 
-The `deviceId` is therefore not part of the global Gateway `Configuration`.
+Each device is processed independently.
 
-This allows multiple connectors to represent different source devices
-without introducing a single global device identity.
-
-The mechanism used to populate connector-specific configuration remains
-independent from the connector interface.
-
-Values may initially be provided directly by `GatewayApplication` and may
-later originate from an external configuration source without changing
-`IConnector` or the common internal data model.
+Connectors never merge their data and never communicate with each other.
 
 ---
 
-## Dependency Injection
+# Separation from Source-Side Components
 
-`GatewayApplication` acts as the composition root and creates connectors
-together with their required dependencies.
+`IConnector` and the firmware-side `SensorConnector` belong to different
+parts of the system.
 
-Conceptually:
+The `SensorConnector` runs **inside the ESP32**. It collects local sensor
+values and knows nothing about `Metric` or `DeviceData`.
+
+The gateway-side `ESP32Connector` receives the data published by the ESP32
+and translates it into the gateway's common model.
 
 ```text
-GatewayApplication
-        │
-        ├── ESP32ConnectorConfig
-        │          │
-        │          ▼
-        │    ESP32Connector
-        │
-        ├── OPCUAConnectorConfig
-        │          │
-        │          ▼
-        │    OPCUAConnector
-        │
-        └── ModbusConnectorConfig
-                   │
-                   ▼
-             ModbusConnector
+                 ESP32                              GATEWAY
+
+ ┌─────────────────────────┐
+ │ Sensors                 │
+ │   │                     │
+ │   ▼                     │
+ │ SensorConnector         │
+ │   │                     │
+ └───┼─────────────────────┘
+     │
+     │ raw/<deviceId>
+     │ MQTT / JSON
+     ▼
+ ═════════════════════════════════════════════════════════════
+                              │
+                              ▼
+                    ESP32Connector
+                              │
+                              │ Metric / DeviceData
+                              ▼
+                     Gatewayapplication
 ```
 
-The connectors are stored and accessed through the `IConnector` interface.
-
-This allows `GatewayApplication` to work with different connector
-implementations without depending on their concrete acquisition logic.
+This boundary keeps source-side sensor handling separate from gateway-side
+protocol conversion.
 
 ---
 
-## Multiple Connectors
+# Design Principles
 
-The gateway can contain multiple connectors at the same time.
-
-Each connector represents its own source device and produces its own
-`DeviceData`.
-
-```text
-ESP32Connector
-      │
-      ▼
-DeviceData(<device-id>)
-      │
-      ▼
-SparkplugEncoder
-      │
-      ▼
-MQTTPublisher
-
-
-OPCUAConnector
-      │
-      ▼
-DeviceData(<device-id>)
-      │
-      ▼
-SparkplugEncoder
-      │
-      ▼
-MQTTPublisher
-```
-
-The `DeviceData` objects are processed independently.
-
-Connectors never merge their data into a shared `DeviceData` object.
-
-This allows heterogeneous source devices to be integrated without changing
-the common gateway processing pipeline.
+* **Single Responsibility:** each connector handles one source protocol.
+* **`IConnector` interface:** the gateway works with connectors through a
+  common interface.
+* **One connector per protocol:** a connector can serve multiple machines or
+  devices of the same protocol.
+* **Common internal model:** all source-specific data becomes `Metric` and
+  `DeviceData`.
+* **Local failure handling:** connectors handle their own connection and retry
+  logic; the rest of the gateway sees unavailable sources as silence.
+* **Configuration instead of hard-coding:** source-specific settings are
+  provided through configuration structures.
 
 ---
 
-## Separation from Source-Side Components
+# Future Extensions
 
-`IConnector` and `SensorConnector` belong to different architectural
-layers.
+* `ModbusConnector` for Modbus devices.
+* `RESTConnector` for HTTP/REST interfaces.
+* Additional OPC UA machines by adding another entry to `sources`.
+* Reading the OPC UA `SourceTimestamp` through `readDataValue()`.
+* Explicit OPC UA type inspection.
+* OPC UA server certificate validation.
 
-`SensorConnector` is a source-side component responsible for aggregating
-local sensors on a source device.
-
-`IConnector` represents the gateway-side abstraction used to integrate that
-source device into the Industrial Edge Gateway.
-
-```text
-SOURCE DEVICE
-────────────────────────────────
-
-DHT11Sensor
-ShockSensor
-LightSensor
-      │
-      ▼
-SensorConnector
-      │
-      │ Raw Transport
-      ▼
-
-════════ GATEWAY BOUNDARY ════════
-
-ESP32Connector
-      │
-      ▼
-DeviceData
-```
-
-The gateway does not access the physical sensors directly.
-
----
-
-## Design Principles
-
-- Single Responsibility Principle
-- Dependency Injection
-- Programming to Interfaces
-- Hardware independence
-- Protocol independence
-- Explicit configuration ownership
-- Common internal data model
-- Independent connector data processing
-
----
-
-## Future Extensions
-
-Additional connector implementations can be introduced without modifying
-the gateway core.
-
-Possible extensions include
-
-- OPC UA
-- Modbus
-- REST
-- other industrial communication protocols;
-- additional source-device types.
-
-The common `IConnector` interface and `DeviceData` representation remain the
-stable integration boundary.
-
-Future configuration sources may also be introduced without changing the
-connector interface.
-
-For example:
-
-```text
-External Configuration
-        │
-        ▼
-ConnectorConfig
-        │
-        ▼
-IConnector
-        │
-        ▼
-DeviceData
-```
+The `IConnector` interface and `DeviceData` remain the stable integration
+boundary for additional source protocols.
