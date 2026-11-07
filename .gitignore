@@ -28,6 +28,7 @@ __pycache__/
 # --- OPC UA credentials and private keys ---
 gateway/config/config.json
 gateway/certs/gateway_key.pem
+gateway/config_docker/config.docker.json
 # --- Gateway runtime state ---
 gateway/bdseq.dat
 
