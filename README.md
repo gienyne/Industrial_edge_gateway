@@ -197,7 +197,7 @@ Run the executable from the `gateway` directory so that relative configuration p
 
 Further technical details, architecture decisions and component descriptions are available in the [`docs/`](docs/) directory.
 
-- [System overview](docs/architekture/overview.md)
+- [System overview](docs/architekture/overwiew.md)
 - [Data models](docs/architekture/data_models.md)
 - [Gateway connectors](docs/architekture/Gateway_Connectors.md)
 - [Gateway application](docs/architekture/gateway_application.md)
