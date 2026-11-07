@@ -196,5 +196,3 @@ Run the executable from the `gateway` directory so that relative configuration p
 ## Documentation
 
 Further technical details, architecture decisions and component descriptions are available in the [`docs/`](docs/) directory.
-- [Dashboard documentation](dashboard/README.md)
-- [Sprint documentation](docs/sprints/)
