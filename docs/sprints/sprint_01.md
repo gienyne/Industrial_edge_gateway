@@ -68,41 +68,41 @@ remains independent of the Sparkplug representation.
 ### ESP32 Source Device
 
 - [x] Create Git repository
-- [ ] Configure PlatformIO
-- [ ] Connect KY-015
-- [ ] Connect KY-002
-- [ ] Connect KY-018
-- [ ] Read sensor values
-- [ ] Implement source-side sensor model
-- [ ] Implement `SensorConnector`
-- [ ] Implement MQTT communication
-- [ ] Publish sensor data through MQTT
-- [ ] Verify MQTT messages from the ESP32
+- [x] Configure PlatformIO
+- [x] Connect KY-015
+- [x] Connect KY-002
+- [x] Connect KY-018
+- [x] Read sensor values
+- [x] Implement source-side sensor model
+- [x] Implement `SensorConnector`
+- [x] Implement MQTT communication
+- [x] Publish sensor data through MQTT
+- [x] Verify MQTT messages from the ESP32
 
 ### Industrial Edge Gateway
 
-- [ ] Set up Gateway build environment
-- [ ] Implement `Metric`
-- [ ] Implement `DeviceData`
-- [ ] Implement `IConnector`
-- [ ] Implement `ESP32Connector`
-- [ ] Receive ESP32 data through MQTT
-- [ ] Convert source data into `DeviceData`
-- [ ] Implement `SparkplugEncoder`
-- [ ] Generate Sparkplug B NBIRTH
-- [ ] Generate Sparkplug B DDATA
-- [ ] Implement `MQTTPublisher`
-- [ ] Publish Sparkplug B messages through MQTT
-- [ ] Verify Sparkplug messages with MQTT Explorer
+- [x] Set up Gateway build environment
+- [x] Implement `Metric`
+- [x] Implement `DeviceData`
+- [x] Implement `IConnector`
+- [x] Implement `ESP32Connector`
+- [x] Receive ESP32 data through MQTT
+- [x] Convert source data into `DeviceData`
+- [x] Implement `SparkplugEncoder`
+- [x] Generate Sparkplug B NBIRTH
+- [x] Generate Sparkplug B DDATA
+- [x] Implement `MQTTPublisher`
+- [x] Publish Sparkplug B messages through MQTT
+- [x] Verify Sparkplug messages with MQTT Explorer
 
 ### Integration
 
-- [ ] Validate ESP32 -> MQTT Broker -> Gateway data flow
-- [ ] Validate Gateway -> Sparkplug B -> MQTT Broker data flow
-- [ ] Verify device identity
-- [ ] Verify metric values
-- [ ] Verify Sparkplug topic structure
-- [ ] Document results
+- [x] Validate ESP32 -> MQTT Broker -> Gateway data flow
+- [x] Validate Gateway -> Sparkplug B -> MQTT Broker data flow
+- [x] Verify device identity
+- [x] Verify metric values
+- [x] Verify Sparkplug topic structure
+- [x] Document results
 
 ---
 
@@ -157,17 +157,6 @@ required by later implementation stages.
 
 ---
 
-## Progress
-
-| Date | Description |
-|------|--------------|
-| ...  | ...          |
-
-## Notes
-
-...
-
----
 
 ## Sprint 1 Success Criteria
 
