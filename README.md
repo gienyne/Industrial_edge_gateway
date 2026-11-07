@@ -1,157 +1,209 @@
-# Industrial Edge Gateway using Sparkplug B
+# Industrial Edge Gateway
 
-## Overview
-
-This project is developed as part of the Smart Factory Mittelhessen.
-
-The objective is to design a modular Industrial Edge Gateway capable of
-integrating heterogeneous source devices and industrial systems through
-dedicated connectors.
-
-Source-specific data is converted into a common internal data model and
-then encoded as Sparkplug B before being published through MQTT.
-
-The first prototype uses an ESP32 with a small set of sensors. The ESP32
-acts as a source device and communicates its data to the Gateway through
-MQTT. Sparkplug B is implemented exclusively at the Gateway level.
-
-The architecture is intended to support future integration of industrial
-machines using communication technologies such as OPC UA, Modbus TCP and
-REST APIs.
-
----
-
-## Objectives
-
-The Gateway shall
-
-- integrate data from heterogeneous source devices;
-- isolate source-specific communication through connector implementations;
-- convert source data into a common internal data model;
-- encode standardized Gateway data as Sparkplug B;
-- publish Sparkplug B messages through MQTT;
-- support multiple source devices without coupling the Gateway core to a
-  specific source technology;
-- allow future integration with persistence, backend and visualization
-  components.
-
----
+An industrial edge gateway that connects heterogeneous data sources, standardizes their data and publishes it using **Sparkplug B over MQTT**. A backend stores measurements in **TimescaleDB** and provides them through a REST API to a web dashboard.
 
 ## Architecture
 
-The Gateway follows a connector-based architecture:
+![Industrial Edge Gateway Architecture](docs/images/gateway_architecture.png)
 
-```text
-Source Devices / Industrial Systems
-              │
-              ▼
-      Gateway Connectors
-              │
-              ▼
-          DeviceData
-              │
-              ▼
-       SparkplugEncoder
-              │
-              ▼
-        MQTTPublisher
-              │
-              ▼
-          MQTT Broker
+The gateway uses protocol-specific connectors to collect data and convert it into a common `Metric` / `DeviceData` model. The Sparkplug B encoder transforms this data into standardized messages, which are published to the MQTT broker.
+
+The architecture separates data acquisition, message encoding, communication and persistence. Adding a new machine using a supported protocol primarily requires configuration rather than changes to the gateway core.
+
+## Features
+
+- **Multi-source data acquisition:** ESP32 sensor boards via MQTT/JSON and industrial equipment via OPC UA.
+- **Common data model:** Standardized `Metric` and `DeviceData` structures independent of the original data source.
+- **Sparkplug B:** Device lifecycle management through Birth, Data, Rebirth and Death messages, including Report by Exception.
+- **Industrial connectivity:** Configurable OPC UA endpoints, security settings, credentials and supported data types.
+- **Data persistence:** Time-series measurements stored in TimescaleDB.
+- **Backend API:** REST endpoints for device management, measurements, historical data and system events.
+- **Authentication:** Session-based authentication and CSRF protection.
+- **Web dashboard:** Device status monitoring, current metric values, historical charts and event filtering.
+- **Containerized deployment:** Docker Compose integration of the gateway, backend, database and dashboard.
+
+## Dashboard Preview
+
+The web dashboard provides an overview of connected devices, their operational status, current measurements, historical trends and recent system events.
+
+![Device Details Dashboard](docs/images/dashboard-device-details.png)
+
+## Technology Stack
+
+| Component | Technologies |
+|---|---|
+| Gateway | C++17, CMake, Paho MQTT C++, open62541, open62541pp, Protobuf |
+| Sensor firmware | C++, ESP32, PlatformIO |
+| Backend | Java 21, Spring Boot, JPA, Flyway |
+| Database | TimescaleDB, PostgreSQL |
+| Dashboard | React, TypeScript, Material UI, Vite |
+| Infrastructure | Docker, Docker Compose, Eclipse Mosquitto |
+
+## Getting Started
+
+### Prerequisites
+
+- Docker and Docker Compose
+- Git
+- An accessible MQTT broker (Eclipse Mosquitto)
+- Accessible OPC UA servers
+- Java 21 and Node.js (LTS), if running components locally
+- CMake, a C++17 compiler and [vcpkg](https://github.com/microsoft/vcpkg), if building the Gateway locally
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/gienyne/Industrial_edge_gateway.git
+cd Industrial_edge_gateway
 ```
 
-Each connector is responsible for acquiring data from its source and
-converting it into the common internal data model.
+### 2. Configure the Environment
 
-The Gateway core does not depend on the specific source technology.
+Create the root environment file:
 
-Sparkplug B is introduced only at the Gateway output boundary. Source
-devices do not need to implement Sparkplug B.
+```bash
+cp .env.example .env
+```
 
----
+Configure the required environment variables, including database credentials and dashboard administrator credentials.
 
-## Development Strategy
+Create the Docker-specific gateway configuration:
 
-The project is developed incrementally through several development sprints.
+```bash
+cp gateway/config_docker/config.docker.json.example gateway/config_docker/config.docker.json
+```
 
-Each sprint adds new capabilities while preserving the existing
-architecture.
+Adapt the configuration to your MQTT broker, OPC UA sources, credentials and certificates.
 
-The common internal data model and connector-based architecture form the
-stable foundation of the project.
+For local backend development, also create its environment file:
 
-The first sprint validates the complete data flow using an ESP32 and three
-sensors. Later sprints extend the Gateway with additional source types,
-data persistence, backend and visualization, and finally integration with
-real Smart Factory equipment.
+```bash
+cp backend/.env.example backend/.env
+```
 
-The complete development plan is available in `ROADMAP.md`.
+### 3. Start the Application with Docker Compose
 
----
+Build and start the services:
 
-## Current Prototype
+```bash
+docker compose up --build -d
+```
 
-The first prototype uses:
+Check the status of the containers:
 
-- ESP32 as the source device;
-- KY-015 DHT11 temperature sensor;
-- KY-002 shock sensor;
-- KY-018 photoresistor;
-- MQTT for source-to-Gateway communication;
-- `ESP32Connector` for Gateway-side integration;
-- `DeviceData` as the common internal representation;
-- `SparkplugEncoder` for Sparkplug B encoding;
-- `MQTTPublisher` for MQTT publication.
+```bash
+docker compose ps
+```
 
-The ESP32 does not generate Sparkplug B messages. Standardization is
-performed once, at the Gateway level.
+To start only TimescaleDB, for example when developing the backend locally:
 
-Implementation of this prototype is in progress. See `ROADMAP.md` and
-`docs/sprints/sprint_01.md` for the current development status.
+```bash
+docker compose up -d timescaledb
+```
 
----
+### 4. Access the Application
 
-## Repository Structure
+Once the services are running, the following interfaces are available:
 
-The repository contains the ESP32 source-device firmware, the Industrial
-Edge Gateway implementation, and the project documentation.
+| Service | Address |
+|---|---|
+| Dashboard | http://localhost:8083 |
+| Backend API | http://localhost:8082 |
+| Adminer | http://localhost:8081 |
+| TimescaleDB | `localhost:5432` |
+| MQTT broker | `localhost:1883` |
 
-The source-device firmware and the Gateway are separate software
-components with independent build environments, organized within this
-repository.
+Sign in to the dashboard using the administrator credentials configured in the environment file.
 
-Additional components such as backend, database and visualization will be
-introduced as their corresponding development sprints are implemented.
+## Running Components Locally (Optional)
 
----
+The backend, dashboard and gateway can also be started independently for development.
 
-## Future Development
+**Backend**
 
-The architecture is intended to support additional source types through
-dedicated connector implementations.
+First, ensure that TimescaleDB is running:
 
-Planned development includes:
+```bash
+docker compose up -d timescaledb
+```
 
-- additional simulated source types;
-- OPC UA, Modbus TCP and REST integrations;
-- data persistence;
-- backend services;
-- visualization;
-- integration with real Smart Factory equipment;
-- possible research-oriented extensions for the Bachelor thesis.
+Start the Spring Boot application:
 
-The exact implementation of future components may evolve as the project
-progresses.
+```bash
+cd backend
+.\gradlew.bat bootRun
+```
 
----
+The backend uses port `8082`, as configured in `application.yml`. When running locally, it connects to TimescaleDB through `localhost:5432`. Flyway automatically handles database schema migrations at startup.
+
+**Dashboard**
+
+From the `dashboard` directory:
+
+```bash
+npm install
+npm run dev
+```
+
+Open the URL provided by Vite, usually `http://localhost:5173`.
+
+**Gateway**
+
+The gateway uses [open62541](https://open62541.org/) and its C++ wrapper [open62541pp](https://github.com/open62541pp/open62541pp) for OPC UA communication.
+
+C++ dependencies are managed through [vcpkg](https://github.com/microsoft/vcpkg) and declared in `gateway/vcpkg.json`. They include Paho MQTT C++, nlohmann-json, Protocol Buffers and the OPC UA libraries.
+
+**Using Docker (recommended)**
+
+The Docker build automatically installs vcpkg and all dependencies declared in `gateway/vcpkg.json`. No local C++ toolchain, CMake or vcpkg installation is required.
+
+Create the Docker-specific configuration:
+
+```bash
+cp gateway/config_docker/config.docker.json.example gateway/config_docker/config.docker.json
+```
+
+Configure the MQTT broker, OPC UA endpoints, credentials and certificates.
+
+Build and start the application from the project root:
+
+```bash
+docker compose up --build -d
+```
+
+**Local development on Windows (optional)**
+
+Install a C++ compiler, CMake and vcpkg. Then create the local configuration:
+
+```bash
+cp gateway/config/config.json.example gateway/config/config.json
+```
+
+Build the Gateway from its directory. Adjust the vcpkg toolchain path to match your installation:
+
+```bash
+cd gateway
+cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+cmake --build build --config Debug
+```
+
+Run the executable from the `gateway` directory so that relative configuration paths resolve correctly:
+
+```powershell
+.\build\Debug\gateway.exe
+```
 
 ## Documentation
 
-Architectural decisions and design details are documented separately.
+Further technical details, architecture decisions and component descriptions are available in the [`docs/`](docs/) directory.
 
-- `ROADMAP.md` -> development roadmap and sprint planning;
-- `CONTRIBUTING.md` -> development and contribution rules;
-- `docs/architecture/` -> architectural documentation and decisions.
-
-The documentation is kept separate from the implementation so that
-architectural decisions can be reviewed independently from the code.
+- [System overview](docs/architektur/overview.md)
+- [Data models](docs/architektur/data_models.md)
+- [Gateway connectors](docs/architektur/Gateway_Connectors.md)
+- [Gateway application](docs/architektur/gateway_application.md)
+- [Sparkplug encoder](docs/architektur/sparkplug_encoder.md)
+- [MQTT publisher](docs/architektur/mqtt_publisher.md)
+- [Configuration](docs/architektur/configuration.md)
+- [Backend documentation](backend/README.md)
+- [Dashboard documentation](dashboard/README.md)
+- [Sprint documentation](docs/sprints/)
