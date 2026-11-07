@@ -26,7 +26,7 @@ The architecture separates data acquisition, message encoding, communication and
 
 The web dashboard provides an overview of connected devices, their operational status, current measurements, historical trends and recent system events.
 
-![Device Details Dashboard](docs/images/dashboard-device-details.png)
+![Device Details Dashboard](docs/images/device-details.png)
 
 ## Technology Stack
 
