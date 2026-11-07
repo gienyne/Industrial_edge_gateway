@@ -196,14 +196,5 @@ Run the executable from the `gateway` directory so that relative configuration p
 ## Documentation
 
 Further technical details, architecture decisions and component descriptions are available in the [`docs/`](docs/) directory.
-
-- [System overview](docs/architekture/overwiew.md)
-- [Data models](docs/architekture/data_models.md)
-- [Gateway connectors](docs/architekture/Gateway_Connectors.md)
-- [Gateway application](docs/architekture/gateway_application.md)
-- [Sparkplug encoder](docs/architekture/sparkplug_encoder.md)
-- [MQTT publisher](docs/architekture/mqtt_publisher.md)
-- [Configuration](docs/architekture/configuration.md)
-- [Backend documentation](backend/README.md)
 - [Dashboard documentation](dashboard/README.md)
 - [Sprint documentation](docs/sprints/)
