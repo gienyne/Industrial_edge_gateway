@@ -1,0 +1,95 @@
+/* Drawing area of the history chart (shared by Device Details and Metrics & History). */
+.history-plot {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 150px;
+  padding: 0;
+}
+
+.history-plot__svg {
+  position: absolute;
+  inset: 0;
+  display: block;
+  max-width: none;
+}
+
+.history-plot__message {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.history-plot__grid {
+  stroke: #e8eef8;
+  stroke-width: 1;
+}
+
+.history-plot__axis-label {
+  fill: #7a88a6;
+  font-size: 11.5px;
+}
+
+.history-plot__line {
+  stroke: #2563eb;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.history-plot__cursor {
+  stroke: #9db4e0;
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.history-plot__dot {
+  fill: #ffffff;
+  stroke: #2563eb;
+  stroke-width: 2.5;
+}
+
+/* "Yes" periods of an On/Off metric: a soft vertical band behind the line. */
+.history-plot__band {
+  fill: rgba(37, 99, 235, 0.14);
+}
+
+.history-plot__tooltip {
+  position: absolute;
+  top: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 5px 10px;
+  border: 1px solid #e2e9f6;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 6px 18px -8px rgba(16, 42, 94, 0.3);
+  pointer-events: none;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.history-plot__tooltip-value {
+  color: #0f1f45;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.history-plot__tooltip-time {
+  color: #7a88a6;
+  font-size: 11px;
+}
+
+/* Numeric metrics: band between the lowest and highest raw value of each time bucket. */
+.history-plot__envelope {
+  fill: rgba(37, 99, 235, 0.13);
+  stroke: none;
+}
+
+.history-plot__tooltip-range {
+  color: #4a5b7d;
+  font-size: 11px;
+  font-weight: 600;
+}

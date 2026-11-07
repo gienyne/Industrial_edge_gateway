@@ -1,0 +1,79 @@
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  max-width: 380px;
+}
+
+.login-form__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.login-form .login-form__title {
+  margin: 0;
+  color: #0f1f45;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.login-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.login-form__label {
+  color: #7a88a6;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.login-form .MuiOutlinedInput-root {
+  min-height: 44px;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #14295a;
+  font-weight: 600;
+}
+
+.login-form .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline {
+  border-color: #d9e2f3;
+}
+
+.login-form .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: #aebfe0;
+}
+
+.login-form .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #2563eb;
+  border-width: 1.5px;
+}
+
+.login-form .login-form__submit {
+  min-height: 46px;
+  margin-top: 4px;
+  border-radius: 10px;
+  background: #2563eb;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.login-form .login-form__submit:hover {
+  background: #1d4ed8;
+}
+
+.login-form .login-form__submit.Mui-disabled {
+  background: #c7d6f5;
+  color: #ffffff;
+}
+
+.login-form .login-form__error {
+  border-radius: 10px;
+}

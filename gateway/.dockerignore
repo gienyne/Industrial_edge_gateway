@@ -1,0 +1,8 @@
+build
+certs
+config
+config_docker
+__pycache__
+.vscode
+bdseq.dat
+*.md

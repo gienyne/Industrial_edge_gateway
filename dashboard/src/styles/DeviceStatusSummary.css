@@ -1,0 +1,90 @@
+.device-status-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  width: 100%;
+  align-items: stretch;
+}
+
+.device-status-summary .device-status-summary__card {
+  height: 100%;
+  min-width: 0;
+  border: 1px solid #e2e9f6;
+  border-radius: 14px;
+  box-shadow:
+    0 1px 2px rgba(16, 42, 94, 0.05),
+    0 8px 24px -12px rgba(16, 42, 94, 0.16);
+}
+
+.device-status-summary__content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 12px;
+  padding: 10px 20px;
+}
+
+.device-status-summary__content:last-child {
+  padding-bottom: 10px;
+}
+
+.device-status-summary__heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.device-status-summary .device-status-summary__count {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.device-status-summary__card[data-status='online'] .device-status-summary__count {
+  color: #15803d;
+}
+
+.device-status-summary__card[data-status='offline'] .device-status-summary__count {
+  color: #b91c1c;
+}
+
+.device-status-summary__card[data-status='unknown'] .device-status-summary__count {
+  color: #b45309;
+}
+
+.device-status-summary__indicator {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
+.device-status-summary__indicator[data-status='online'] {
+  background-color: #16a34a;
+}
+
+.device-status-summary__indicator[data-status='offline'] {
+  background-color: #dc2626;
+}
+
+.device-status-summary__indicator[data-status='unknown'] {
+  background-color: #d97706;
+}
+
+.device-status-summary__description {
+  grid-column: 1;
+  grid-row: 2;
+  display: block;
+  margin-top: 2px;
+}
+
+@media (max-width: 420px) {
+  .device-status-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
